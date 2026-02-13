@@ -22,10 +22,103 @@ export interface ToolApproval {
     input: unknown
 }
 
+type CodexEvent = {
+    event?: string
+    method?: string
+    text?: string
+    params?: Record<string, any>
+    [key: string]: any
+}
+
 const BRAIN_OPTIONS: Record<AgentBrain, { label: string; icon: string; description: string }> = {
     claude: { label: 'Claude', icon: '🧠', description: 'Webview (Pro plan)' },
     gemini: { label: 'Gemini', icon: '🔮', description: 'SDK (API key)' },
     codex: { label: 'Codex', icon: '🤖', description: 'App Server (CLI)' },
+}
+
+const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash'
+const MAX_PERSISTED_MESSAGES = 120
+
+function coerceBrain(value: unknown): AgentBrain {
+    if (value === 'claude' || value === 'gemini' || value === 'codex') return value
+    return 'claude'
+}
+
+function sanitizeMessages(value: unknown): AgentMessage[] {
+    if (!Array.isArray(value)) return []
+    return value
+        .filter((m) => m && typeof m === 'object')
+        .map((m: any, index) => ({
+            id: typeof m.id === 'string' ? m.id : `msg-restored-${Date.now()}-${index}`,
+            role: m.role === 'assistant' || m.role === 'system' ? m.role : 'user',
+            content: typeof m.content === 'string' ? m.content : '',
+            timestamp: typeof m.timestamp === 'number' ? m.timestamp : Date.now(),
+            isStreaming: Boolean(m.isStreaming),
+            brain: m.brain === 'claude' || m.brain === 'gemini' || m.brain === 'codex' ? m.brain : undefined,
+        }))
+        .slice(-MAX_PERSISTED_MESSAGES)
+}
+
+function getCodexMethod(event: CodexEvent): string {
+    return String(event?.event || event?.method || '').toLowerCase()
+}
+
+function getCodexSessionId(event: CodexEvent): string | null {
+    const candidates = [
+        event?.sessionId,
+        event?.session_id,
+        event?.params?.sessionId,
+        event?.params?.session_id,
+        event?.params?.session?.id,
+        event?.params?.turn?.sessionId,
+        event?.params?.turn?.session_id,
+        event?.result?.sessionId,
+        event?.result?.session_id,
+    ]
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim()) return candidate
+    }
+    return null
+}
+
+function getCodexText(event: CodexEvent): string {
+    const candidates = [
+        event?.text,
+        event?.params?.text,
+        event?.params?.delta,
+        event?.params?.output_text,
+        event?.params?.message?.text,
+        event?.params?.content,
+        event?.params?.chunk?.text,
+        event?.params?.output?.text,
+    ]
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.length > 0) return candidate
+    }
+    return ''
+}
+
+function getToolApprovalFromEvent(event: CodexEvent): ToolApproval | null {
+    const toolCallId = event?.toolCallId
+        || event?.tool_call_id
+        || event?.params?.toolCallId
+        || event?.params?.tool_call_id
+        || event?.params?.id
+    if (!toolCallId || typeof toolCallId !== 'string') return null
+
+    const toolName = event?.toolName
+        || event?.tool_name
+        || event?.params?.toolName
+        || event?.params?.tool_name
+        || event?.params?.name
+        || 'unknown'
+
+    const input = event?.input
+        ?? event?.params?.input
+        ?? event?.params?.arguments
+        ?? event?.params?.args
+
+    return { id: toolCallId, tool: String(toolName), input }
 }
 
 interface AgentPaneProps {
@@ -35,15 +128,28 @@ interface AgentPaneProps {
 }
 
 export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
-    const [brain, setBrain] = useState<AgentBrain>((data?.brain as AgentBrain) || 'claude')
-    const [messages, setMessages] = useState<AgentMessage[]>([])
+    const [brain, setBrain] = useState<AgentBrain>(() => coerceBrain(data?.brain))
+    const [messages, setMessages] = useState<AgentMessage[]>(() => sanitizeMessages(data?.messages))
     const [input, setInput] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [showBrainPicker, setShowBrainPicker] = useState(false)
     const [pendingApprovals, setPendingApprovals] = useState<ToolApproval[]>([])
-    const [codexSessionId, setCodexSessionId] = useState<string | null>(null)
+    const [codexSessionId, setCodexSessionId] = useState<string | null>(
+        typeof data?.codexSessionId === 'string' ? data.codexSessionId : null
+    )
+    const [geminiModel, setGeminiModel] = useState<string>(
+        typeof data?.geminiModel === 'string' && data.geminiModel.trim()
+            ? data.geminiModel
+            : DEFAULT_GEMINI_MODEL
+    )
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const codexSessionIdRef = useRef<string | null>(codexSessionId)
+    const codexAssistantMessageIdRef = useRef<string | null>(null)
+
+    useEffect(() => {
+        codexSessionIdRef.current = codexSessionId
+    }, [codexSessionId])
 
     // Publish ambient state
     useEffect(() => {
@@ -62,45 +168,136 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
-    // Save brain selection
+    // Persist pane data (debounced to avoid excessive storage writes during streams)
     useEffect(() => {
-        onUpdate?.({ brain })
+        const timeout = window.setTimeout(() => {
+            onUpdate?.({
+                brain,
+                geminiModel,
+                codexSessionId,
+                messages: messages.slice(-MAX_PERSISTED_MESSAGES),
+            })
+        }, 180)
+
+        return () => window.clearTimeout(timeout)
+    }, [brain, geminiModel, codexSessionId, messages, onUpdate])
+
+    // Reset transient state when brain changes
+    useEffect(() => {
+        setIsLoading(false)
+        if (brain !== 'codex') {
+            setPendingApprovals([])
+            codexAssistantMessageIdRef.current = null
+        }
     }, [brain])
+
+    const appendCodexText = useCallback((text: string) => {
+        if (!text) return
+        setMessages((prev) => {
+            const targetId = codexAssistantMessageIdRef.current
+            if (targetId) {
+                const idx = prev.findIndex((m) => m.id === targetId)
+                if (idx >= 0) {
+                    return prev.map((m, i) => i === idx ? { ...m, content: m.content + text } : m)
+                }
+            }
+
+            const last = prev[prev.length - 1]
+            if (last?.isStreaming && last.role === 'assistant') {
+                codexAssistantMessageIdRef.current = last.id
+                return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: m.content + text } : m)
+            }
+
+            const nextId = `msg-${Date.now()}`
+            codexAssistantMessageIdRef.current = nextId
+            return [...prev, {
+                id: nextId,
+                role: 'assistant',
+                content: text,
+                timestamp: Date.now(),
+                isStreaming: true,
+                brain: 'codex',
+            }]
+        })
+    }, [])
 
     // Subscribe to codex events
     useEffect(() => {
         if (brain !== 'codex' || !window.platform?.codex) return
 
-        const cleanup = window.platform.codex.onEvent((event: any) => {
-            if (event.event === 'message' || event.method === 'message') {
-                const text = event.text || event.params?.text || ''
-                setMessages(prev => {
-                    const last = prev[prev.length - 1]
-                    if (last?.isStreaming && last.role === 'assistant') {
-                        return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: m.content + text } : m)
-                    }
-                    return [...prev, { id: `msg-${Date.now()}`, role: 'assistant', content: text, timestamp: Date.now(), isStreaming: true, brain: 'codex' }]
-                })
+        const cleanupEvent = window.platform.codex.onEvent((rawEvent: CodexEvent) => {
+            const event = rawEvent || {}
+            const method = getCodexMethod(event)
+            const eventSessionId = getCodexSessionId(event)
+            const currentSessionId = codexSessionIdRef.current
+            if (currentSessionId && eventSessionId && eventSessionId !== currentSessionId) {
+                return
             }
-            if (event.event === 'tool-call' || event.method === 'tool-call') {
-                setPendingApprovals(prev => [...prev, {
-                    id: event.toolCallId || event.params?.toolCallId || `tool-${Date.now()}`,
-                    tool: event.toolName || event.params?.toolName || 'unknown',
-                    input: event.input || event.params?.input,
+
+            const text = getCodexText(event)
+            if (text && (method.includes('message') || method.includes('delta') || method.includes('output_text') || method.includes('text'))) {
+                appendCodexText(text)
+            }
+
+            if (method.includes('tool') && (method.includes('call') || method.includes('request'))) {
+                const approval = getToolApprovalFromEvent(event)
+                if (approval) {
+                    setPendingApprovals((prev) => prev.some((a) => a.id === approval.id) ? prev : [...prev, approval])
+                }
+            }
+
+            if (method.includes('tool') && (method.includes('result') || method.includes('approved') || method.includes('denied'))) {
+                const toolId = event.toolCallId || event.tool_call_id || event.params?.toolCallId || event.params?.tool_call_id
+                if (typeof toolId === 'string' && toolId) {
+                    setPendingApprovals((prev) => prev.filter((a) => a.id !== toolId))
+                }
+            }
+
+            if (
+                method === 'turn-complete'
+                || method.includes('turn.complete')
+                || method.includes('turn.completed')
+                || method.includes('response.completed')
+                || method.includes('turn.done')
+            ) {
+                setMessages((prev) => prev.map((m) => m.isStreaming ? { ...m, isStreaming: false } : m))
+                codexAssistantMessageIdRef.current = null
+                setPendingApprovals([])
+                setIsLoading(false)
+            }
+
+            if (method.includes('error')) {
+                const errorText = event?.error?.message || event?.params?.error?.message || 'Unknown Codex error'
+                setMessages((prev) => [...prev, {
+                    id: `msg-${Date.now()}`,
+                    role: 'system',
+                    content: `Codex error: ${errorText}`,
+                    timestamp: Date.now(),
                 }])
-            }
-            if (event.event === 'tool-result' || event.method === 'tool-result') {
-                const toolId = event.toolCallId || event.params?.toolCallId
-                setPendingApprovals(prev => prev.filter(a => a.id !== toolId))
-            }
-            if (event.event === 'turn-complete' || event.method === 'turn-complete') {
-                setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
+                setMessages((prev) => prev.map((m) => m.isStreaming ? { ...m, isStreaming: false } : m))
+                codexAssistantMessageIdRef.current = null
                 setIsLoading(false)
             }
         })
 
-        return cleanup
-    }, [brain])
+        const cleanupExit = window.platform.codex.onExit((code) => {
+            setMessages((prev) => [...prev, {
+                id: `msg-${Date.now()}`,
+                role: 'system',
+                content: `Codex app-server exited (code ${code}).`,
+                timestamp: Date.now(),
+            }])
+            setMessages((prev) => prev.map((m) => m.isStreaming ? { ...m, isStreaming: false } : m))
+            codexAssistantMessageIdRef.current = null
+            setPendingApprovals([])
+            setIsLoading(false)
+        })
+
+        return () => {
+            cleanupEvent()
+            cleanupExit()
+        }
+    }, [brain, appendCodexText])
 
     const handleSend = useCallback(async () => {
         const text = input.trim()
@@ -116,7 +313,7 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
         } else if (brain === 'codex') {
             await sendCodex(text)
         }
-    }, [input, isLoading, brain, messages])
+    }, [input, isLoading, brain, messages, geminiModel, codexSessionId])
 
     const sendGemini = async (_text: string, allMessages: AgentMessage[]) => {
         if (!window.platform?.gemini) {
@@ -141,7 +338,7 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
 
             const { streamId } = await window.platform.gemini.stream({
                 messages: history,
-                model: 'gemini-2.0-flash',
+                model: geminiModel || DEFAULT_GEMINI_MODEL,
             })
 
             const cleanup = window.platform.gemini.onChunk(streamId, (chunk: { text: string; done: boolean; error?: string }) => {
@@ -186,6 +383,17 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
         }
 
         try {
+            const assistantId = `msg-${Date.now()}`
+            codexAssistantMessageIdRef.current = assistantId
+            setMessages((prev) => [...prev, {
+                id: assistantId,
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now(),
+                isStreaming: true,
+                brain: 'codex',
+            }])
+
             // Initialize session if needed
             let sessionId = codexSessionId
             if (!sessionId) {
@@ -194,17 +402,21 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
                 })
                 sessionId = result.sessionId
                 setCodexSessionId(sessionId)
+                codexSessionIdRef.current = sessionId
             }
 
             // Create turn
             await window.platform.codex.turn({ sessionId, message: text })
             // Response comes via codex events subscribed in useEffect
         } catch (err: any) {
+            setMessages((prev) => prev.map((m) => m.isStreaming ? { ...m, isStreaming: false } : m))
             setMessages(prev => [...prev, {
-                id: `msg-${Date.now()}`, role: 'system',
+                id: `msg-${Date.now()}`,
+                role: 'system',
                 content: `Codex error: ${err.message || err}`,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             }])
+            codexAssistantMessageIdRef.current = null
             setIsLoading(false)
         }
     }
@@ -244,6 +456,34 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
             <div className="flex items-center gap-2 px-3 py-1.5 bg-card/50 border-b border-border/40 shrink-0">
                 <BrainSelector brain={brain} setBrain={setBrain} showPicker={showBrainPicker} setShowPicker={setShowBrainPicker} />
                 <span className="text-[10px] text-muted-foreground">{BRAIN_OPTIONS[brain].description}</span>
+                {brain === 'gemini' && (
+                    <input
+                        className="ml-auto h-6 w-44 rounded border border-border/50 bg-background px-2 text-[10px] text-foreground outline-none focus:border-primary/50"
+                        value={geminiModel}
+                        onChange={(e) => setGeminiModel(e.target.value)}
+                        placeholder="Gemini model"
+                        title="Gemini model"
+                    />
+                )}
+                {brain === 'codex' && codexSessionId && (
+                    <span className="ml-auto text-[10px] text-muted-foreground/80" title={codexSessionId}>
+                        Session: {codexSessionId.slice(0, 12)}...
+                    </span>
+                )}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => {
+                        setMessages([])
+                        setPendingApprovals([])
+                        setIsLoading(false)
+                        codexAssistantMessageIdRef.current = null
+                    }}
+                    title="Clear conversation"
+                >
+                    Clear
+                </Button>
             </div>
 
             {/* Messages */}
