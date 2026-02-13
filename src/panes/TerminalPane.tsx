@@ -5,6 +5,8 @@ import '@xterm/xterm/css/xterm.css';
 import { terminalCommandService } from '../services/terminalCommandService';
 import { usePaneStateStore } from './paneStateStore';
 import { usePaneControlBus } from './paneControlBus';
+import { useBroadcastStore } from '../layout/broadcastStore';
+import { useTerminalProfileStore } from './terminalProfileStore';
 
 interface TerminalPaneProps {
     id: string;
@@ -14,15 +16,25 @@ interface TerminalPaneProps {
 export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const initRef = useRef(false);
+    const ptyReadyRef = useRef(false);
+    const currentCwdRef = useRef('');
+    const outputBufferRef = useRef('');
 
     const setPaneState = usePaneStateStore((s) => s.setPaneState);
     const removePaneState = usePaneStateStore((s) => s.removePaneState);
+    const profileLoaded = useTerminalProfileStore((s) => s.isLoaded);
+    const sharedCwd = useTerminalProfileStore((s) => s.sharedCwd);
+    const sharedEnv = useTerminalProfileStore((s) => s.sharedEnv);
+    const bootstrapCommands = useTerminalProfileStore((s) => s.bootstrapCommands);
+    const syncCwdAcrossTerminals = useTerminalProfileStore((s) => s.syncCwdAcrossTerminals);
+    const lastCwdSourcePaneId = useTerminalProfileStore((s) => s.lastCwdSourcePaneId);
+    const setSharedCwd = useTerminalProfileStore((s) => s.setSharedCwd);
 
     // Initialize ambient state on mount, clean up on unmount
     useEffect(() => {
-        setPaneState(id, { type: 'terminal', lastOutput: '', cwd: '', isRunning: false });
+        setPaneState(id, { type: 'terminal', lastOutput: '', cwd: sharedCwd || '', isRunning: false });
         return () => removePaneState(id);
-    }, [id, setPaneState, removePaneState]);
+    }, [id, setPaneState, removePaneState, sharedCwd]);
 
     // Register paneControlBus handler for broadcast input + fusion CWD sync
     useEffect(() => {
@@ -44,6 +56,7 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
     }, [id]);
 
     useEffect(() => {
+        if (!profileLoaded) return;
         if (!containerRef.current || initRef.current) return;
         initRef.current = true;
 
@@ -97,14 +110,22 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
         let unsubExit: (() => void) | null = null;
         let resizeObserver: ResizeObserver | null = null;
 
-        let outputBuffer = '';
-
         const setupDisplay = () => {
+            ptyReadyRef.current = true;
             // Write incoming PTY data to xterm
             unsubData = window.platform.terminal.onData(terminalId, (data: string) => {
                 terminal.write(data);
-                outputBuffer = (outputBuffer + data).slice(-4096);
-                usePaneStateStore.getState().updatePaneState(id, { lastOutput: outputBuffer, isRunning: true });
+                outputBufferRef.current = (outputBufferRef.current + data).slice(-4096);
+                const nextState: Record<string, unknown> = { lastOutput: outputBufferRef.current, isRunning: true };
+
+                const detectedCwd = extractCwdFromOutput(outputBufferRef.current);
+                if (detectedCwd && detectedCwd !== currentCwdRef.current) {
+                    currentCwdRef.current = detectedCwd;
+                    nextState.cwd = detectedCwd;
+                    setSharedCwd(detectedCwd, id);
+                }
+
+                usePaneStateStore.getState().updatePaneState(id, nextState as any);
             });
 
             // Handle process exit
@@ -116,6 +137,9 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
             // Forward input
             terminal.onData((data: string) => {
                 window.platform.terminal.send(terminalId, data);
+                if (type === 'terminal') {
+                    useBroadcastStore.getState().broadcast(id, data);
+                }
             });
 
             // Resize observer
@@ -137,7 +161,12 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
             setupDisplay();
         } else {
             // Invoke creation with options object based on prop
-            window.platform.terminal.create(terminalId, { type } as any).then((success: boolean) => {
+            window.platform.terminal.create(terminalId, {
+                type,
+                cwd: sharedCwd || undefined,
+                env: sharedEnv,
+                initCommands: bootstrapCommands,
+            } as any).then((success: boolean) => {
                 if (!success) {
                     terminal.writeln('Failed to create terminal process');
                     return;
@@ -155,7 +184,23 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
             resizeObserver?.disconnect();
             terminal.dispose();
         };
-    }, [id]);
+    }, [id, profileLoaded, type]);
+
+    // Keep all terminals on the same cwd if sync is enabled.
+    useEffect(() => {
+        if (!profileLoaded || !syncCwdAcrossTerminals) return;
+        if (!sharedCwd || !ptyReadyRef.current || !window.platform?.terminal) return;
+        if (lastCwdSourcePaneId === id) {
+            currentCwdRef.current = sharedCwd;
+            return;
+        }
+        if (currentCwdRef.current === sharedCwd) return;
+
+        const terminalId = `terminal-${id}`;
+        window.platform.terminal.send(terminalId, `cd "${sharedCwd}"\r`);
+        currentCwdRef.current = sharedCwd;
+        usePaneStateStore.getState().updatePaneState(id, { cwd: sharedCwd });
+    }, [id, profileLoaded, sharedCwd, syncCwdAcrossTerminals, lastCwdSourcePaneId]);
 
     return (
         <div className="flex flex-col h-full bg-[#1e1e1e] overflow-hidden">
@@ -166,4 +211,25 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
             />
         </div>
     );
+}
+
+function extractCwdFromOutput(output: string): string | null {
+    const clean = output.replace(/\x1B\[[0-9;?]*[A-Za-z]/g, '').replace(/\r/g, '');
+
+    const powershellMatches = [...clean.matchAll(/PS\s+([A-Za-z]:\\[^>\n]*)>/g)];
+    if (powershellMatches.length > 0) {
+        return powershellMatches[powershellMatches.length - 1][1].trim();
+    }
+
+    const cmdMatches = [...clean.matchAll(/(?:^|\n)([A-Za-z]:\\[^>\n]*)>/g)];
+    if (cmdMatches.length > 0) {
+        return cmdMatches[cmdMatches.length - 1][1].trim();
+    }
+
+    const unixMatches = [...clean.matchAll(/(?:^|\n)[^@\n]*@[^:\n]+:([^$#\n]+)[$#]/g)];
+    if (unixMatches.length > 0) {
+        return unixMatches[unixMatches.length - 1][1].trim();
+    }
+
+    return null;
 }

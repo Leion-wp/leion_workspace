@@ -4,6 +4,8 @@ import { Search, Terminal, Globe, FileText, MessageSquare, Layout, ArrowRight, D
 import { useLayoutStore, getAllPaneIds } from './store'
 import { useShortcutsStore } from '../hooks/useShortcuts'
 import { PANE_TYPES, type PaneType } from '../panes'
+import { usePaneStateStore } from '../panes/paneStateStore'
+import { useTerminalProfileStore } from '../panes/terminalProfileStore'
 import type { MosaicNode } from 'react-mosaic-component'
 
 interface Command {
@@ -57,6 +59,7 @@ export function CommandPalette() {
     // Store selectors
     const layout = useLayoutStore(s => s.layout)
     const panes = useLayoutStore(s => s.panes)
+    const tabGroups = useLayoutStore(s => s.tabGroups)
     const spaces = useLayoutStore(s => s.spaces)
     const activeSpaceId = useLayoutStore(s => s.activeSpaceId)
     const setLayout = useLayoutStore(s => s.setLayout)
@@ -64,8 +67,12 @@ export function CommandPalette() {
     const switchSpace = useLayoutStore(s => s.switchSpace)
     const saveLayout = useLayoutStore(s => s.saveLayout)
     const splitActivePane = useLayoutStore(s => s.splitActivePane)
+    const syncCwdAcrossTerminals = useTerminalProfileStore(s => s.syncCwdAcrossTerminals)
 
-    const paneIds = getAllPaneIds(layout)
+    const paneIds = useMemo(() => {
+        const ids = getAllPaneIds(layout)
+        return ids.flatMap(id => tabGroups[id]?.paneIds || [id])
+    }, [layout, tabGroups])
 
     // Listen for open/close
     useEffect(() => {
@@ -157,11 +164,40 @@ export function CommandPalette() {
         })
 
         // Layout actions
+        const activePaneId = useShortcutsStore.getState().activePane
+        const activePaneState = activePaneId ? usePaneStateStore.getState().paneStates[activePaneId] : null
+        const activeTerminalCwd = activePaneState?.type === 'terminal' ? activePaneState.cwd : ''
+
         cmds.push(
             { id: 'split-h', label: 'Split Pane Horizontally', category: 'Layout', icon: <SplitSquareHorizontal size={14} />, action: () => { splitActivePane('row'); setIsOpen(false) }, keywords: ['split', 'horizontal', 'side'] },
             { id: 'split-v', label: 'Split Pane Vertically', category: 'Layout', icon: <SplitSquareHorizontal size={14} className="rotate-90" />, action: () => { splitActivePane('column'); setIsOpen(false) }, keywords: ['split', 'vertical', 'stack'] },
             { id: 'save-layout', label: 'Save Layout', category: 'Layout', icon: <Save size={14} />, shortcut: 'Ctrl+S', action: () => { saveLayout(); setIsOpen(false) } },
             { id: 'maximize', label: 'Maximize Active Pane', category: 'Layout', icon: <Maximize2 size={14} />, action: () => { /* handled by mosaic expand */ setIsOpen(false) } },
+            {
+                id: 'toggle-terminal-cwd-sync',
+                label: `Terminal CWD Sync: ${syncCwdAcrossTerminals ? 'Disable' : 'Enable'}`,
+                category: 'Layout',
+                icon: <Terminal size={14} />,
+                action: () => {
+                    const current = useTerminalProfileStore.getState().syncCwdAcrossTerminals
+                    useTerminalProfileStore.getState().setSyncCwdAcrossTerminals(!current)
+                    setIsOpen(false)
+                },
+                keywords: ['terminal', 'cwd', 'sync'],
+            },
+            {
+                id: 'set-shared-cwd-from-active-terminal',
+                label: 'Terminal: Set Shared CWD From Active Pane',
+                category: 'Layout',
+                icon: <Terminal size={14} />,
+                action: () => {
+                    if (activeTerminalCwd) {
+                        useTerminalProfileStore.getState().setSharedCwd(activeTerminalCwd, activePaneId || null)
+                    }
+                    setIsOpen(false)
+                },
+                keywords: ['terminal', 'cwd', 'shared', 'active'],
+            },
         )
 
         // Space navigation

@@ -3,6 +3,10 @@ import { useLayoutStore, getAllPaneIds, type PaneId } from './store'
 import { useContextMenu, type MenuItem } from '../components'
 import { TabbedPaneGroup } from './TabbedPaneGroup'
 import { useFusionStore } from '../panes/fusionStore'
+import { usePaneStateStore } from '../panes/paneStateStore'
+import { useTerminalProfileStore } from '../panes/terminalProfileStore'
+import { useShortcutsStore } from '../hooks/useShortcuts'
+import { closePaneWithCleanup } from './paneLifecycle'
 import {
     NotesPane,
     BrowserPane,
@@ -28,6 +32,7 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
     const pane = paneConfigOverride ?? paneFromStore
     const setPaneType = useLayoutStore((state) => state.setPaneType)
     const updatePane = useLayoutStore((state) => state.updatePane)
+    const setLayout = useLayoutStore((state) => state.setLayout)
     const movePane = useLayoutStore((state) => state.movePane)
     const movePaneToZone = useLayoutStore((state) => state.movePaneToZone)
     const tabGroups = useLayoutStore((state) => state.tabGroups)
@@ -35,6 +40,7 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
     const dissolveTabGroup = useLayoutStore((state) => state.dissolveTabGroup)
     const layout = useLayoutStore((state) => state.layout)
     const panes = useLayoutStore((state) => state.panes)
+    const setActivePane = useShortcutsStore((state) => state.setActivePane)
     const contextMenu = useContextMenu()
 
     // Check if this id is a tab group
@@ -56,7 +62,7 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
         e.preventDefault()
 
         // Build "Stack with..." submenu from other panes
-        const allPaneIds = getAllPaneIds(layout)
+        const allPaneIds = getAllPaneIds(layout).flatMap(pid => tabGroups[pid]?.paneIds || [pid])
         const otherPanes = allPaneIds.filter(pid => pid !== id && !pid.startsWith('tabgroup-'))
         const stackItems: MenuItem[] = otherPanes.length > 0 ? [
             { separator: true, label: '', action: () => { } },
@@ -79,6 +85,49 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
             { label: 'Unstack All', icon: '📤', action: () => dissolveTabGroup(parentGroup.id) },
         ] : []
 
+        const terminalAmbientState = usePaneStateStore.getState().paneStates[id]
+        const terminalCwd = terminalAmbientState?.type === 'terminal' ? terminalAmbientState.cwd : ''
+        const terminalSettingsItems: MenuItem[] = (type === 'terminal' || type === 'gemini') ? [
+            { separator: true, label: '', action: () => { } },
+            {
+                label: 'Terminal: Set Shared CWD From This Pane',
+                icon: '📂',
+                disabled: !terminalCwd,
+                action: () => useTerminalProfileStore.getState().setSharedCwd(terminalCwd, id),
+            },
+            {
+                label: 'Terminal: Edit Shared ENV',
+                icon: '🧪',
+                action: () => {
+                    const current = useTerminalProfileStore.getState().envAsText()
+                    const next = window.prompt('Shared ENV (KEY=VALUE, one per line)', current)
+                    if (next === null) return
+                    const result = useTerminalProfileStore.getState().applyEnvText(next)
+                    if (!result.ok) {
+                        window.alert(result.error || 'Invalid env format')
+                    }
+                },
+            },
+            {
+                label: 'Terminal: Edit Startup Commands',
+                icon: '⚙️',
+                action: () => {
+                    const current = useTerminalProfileStore.getState().bootstrapAsText()
+                    const next = window.prompt('Startup commands (one per line)', current)
+                    if (next === null) return
+                    useTerminalProfileStore.getState().applyBootstrapText(next)
+                },
+            },
+            {
+                label: `Terminal: CWD Sync ${useTerminalProfileStore.getState().syncCwdAcrossTerminals ? 'ON' : 'OFF'}`,
+                icon: '🔄',
+                action: () => {
+                    const current = useTerminalProfileStore.getState().syncCwdAcrossTerminals
+                    useTerminalProfileStore.getState().setSyncCwdAcrossTerminals(!current)
+                },
+            },
+        ] : []
+
         const items: MenuItem[] = [
             { label: 'Move to Top', icon: '⬆️', action: () => movePane(id, 'top') },
             { label: 'Move to Bottom', icon: '⬇️', action: () => movePane(id, 'bottom') },
@@ -92,6 +141,7 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
             { label: 'Snap Bottom-Left', icon: '↙️', action: () => movePaneToZone(id, 3) },
             { label: 'Snap Bottom-Mid', icon: '⬇️', action: () => movePaneToZone(id, 4) },
             { label: 'Snap Bottom-Right', icon: '↘️', action: () => movePaneToZone(id, 5) },
+            ...terminalSettingsItems,
             ...stackItems,
             ...unstackItems,
             // Fusion (Link) items
@@ -132,19 +182,28 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
             { label: 'Change to Agent', icon: '🧠', action: () => setPaneType(id, 'agent') },
             { separator: true, label: '', action: () => { } },
             { label: 'Duplicate', icon: '📋', action: () => duplicatePane(id) },
-            { label: 'Close', icon: '✕', action: () => closePane(id), disabled: false },
+            { label: 'Close', icon: '✕', action: () => closePaneWithCleanup(id), disabled: allPaneIds.length <= 1 },
         ]
 
         contextMenu.show(e.clientX, e.clientY, items)
     }
 
-    // TODO: Wire these up to layout store
     const duplicatePane = (paneId: string) => {
-        console.log('Duplicate pane:', paneId)
-    }
+        const source = panes[paneId]
+        if (!source) return
 
-    const closePane = (paneId: string) => {
-        console.log('Close pane:', paneId)
+        const newId = `pane-${Date.now()}`
+        const newLayout: import('react-mosaic-component').MosaicNode<string> = layout
+            ? { direction: 'row', first: layout, second: newId, splitPercentage: 70 }
+            : newId
+
+        setLayout(newLayout)
+        setPaneType(newId, source.type)
+        updatePane(newId, {
+            title: source.title ? `${source.title} copy` : source.title,
+            data: source.data ? { ...source.data } : source.data,
+            collapsed: false,
+        })
     }
 
     const renderContent = () => {
@@ -192,6 +251,9 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
         <div
             data-pane-id={id}
             style={{ height: '100%', width: '100%' }}
+            tabIndex={-1}
+            onMouseDown={() => setActivePane(id)}
+            onFocus={() => setActivePane(id)}
             onContextMenu={handleContextMenu}
         >
             {renderContent()}

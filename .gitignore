@@ -1,7 +1,63 @@
-node_modules
-*.ps1
-nul
-*.test.ts 
-*.intent.json
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Tooling caches
+.vite/
+.cache/
+.turbo/
+
+# Environment files
 .env
+.env.*
+!.env.example
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime / temp artifacts
+*.pid
+*.seed
+*.tmp
+*.temp
+nul
+
+# Packaged binaries / installers
+*.exe
+*.msi
+*.deb
+*.dmg
+*.AppImage
+*.zip
+*.vsix
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*.suo
+*.user
+*.userossc
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local assistant / pipeline artifacts
+.claude/
+*.intent.json
+pipeline/*.intent.json
+
+# Optional local scripts
+*.ps1

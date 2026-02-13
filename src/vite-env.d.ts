@@ -11,7 +11,12 @@ interface PlatformBridge {
         load: (key: string) => Promise<string | null>;
     };
     terminal: {
-        create: (id: string, options?: { type?: string }) => Promise<boolean>;
+        create: (id: string, options?: {
+            type?: string;
+            cwd?: string;
+            env?: Record<string, string>;
+            initCommands?: string[];
+        }) => Promise<boolean>;
         onData: (id: string, callback: (data: string) => void) => () => void;
         onExit: (id: string, callback: (code: number) => void) => () => void;
         send: (id: string, data: string) => void;

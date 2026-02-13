@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Titlebar } from './Titlebar'
 import { Sidebar } from './Sidebar'
 import { FileExplorer } from './FileExplorer'
@@ -8,8 +8,12 @@ import { PopoutApp } from './PopoutApp'
 import { ContextMenuProvider } from '../components'
 import { useShortcuts, useShortcutsStore } from '../hooks/useShortcuts'
 import { useLayoutStore } from '../layout/store'
+import { useBroadcastStore } from '../layout/broadcastStore'
 import { useSettingsStore } from '../store/settings'
 import { useFusionStore } from '../panes/fusionStore'
+import { useTerminalProfileStore } from '../panes/terminalProfileStore'
+import { closePaneWithCleanup, resolvePaneToClose } from '../layout/paneLifecycle'
+import type { PaneConfig } from '../panes/types'
 import type { MosaicNode } from 'react-mosaic-component'
 import 'react-mosaic-component/react-mosaic-component.css'
 
@@ -26,11 +30,15 @@ function App() {
     const loadLayout = useLayoutStore((state) => state.loadLayout)
     const spaces = useLayoutStore((state) => state.spaces)
     const panes = useLayoutStore((state) => state.panes)
+    const tabGroups = useLayoutStore((state) => state.tabGroups)
+    const updatePane = useLayoutStore((state) => state.updatePane)
     const loadShortcuts = useShortcutsStore((state) => state.loadShortcuts)
     const setActivePane = useShortcutsStore((state) => state.setActivePane)
     const loadSettings = useSettingsStore((state) => state.loadSettings)
     const loadPresetsFromStorage = useLayoutStore((state) => state.loadPresetsFromStorage)
     const loadFusions = useFusionStore((state) => state.loadFusions)
+    const loadTerminalProfile = useTerminalProfileStore((state) => state.loadProfile)
+    const removeBroadcastPane = useBroadcastStore((state) => state.removePane)
 
     // Load everything on mount
     useEffect(() => {
@@ -39,6 +47,7 @@ function App() {
         loadLayout()
         loadPresetsFromStorage()
         loadFusions()
+        loadTerminalProfile()
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Auto-save when panes or spaces change (debounced)
@@ -55,6 +64,20 @@ function App() {
     }
 
     const paneIds = getAllPaneIds(layout)
+    const allLivePaneIds = useMemo(() => new Set([
+        ...paneIds,
+        ...Object.values(tabGroups).flatMap(group => group.paneIds),
+    ]), [paneIds, tabGroups])
+
+    // Keep broadcast mappings clean when panes disappear
+    useEffect(() => {
+        const broadcastMap = useBroadcastStore.getState().paneGroupMap
+        for (const trackedPaneId of Object.keys(broadcastMap)) {
+            if (!allLivePaneIds.has(trackedPaneId)) {
+                removeBroadcastPane(trackedPaneId)
+            }
+        }
+    }, [allLivePaneIds, removeBroadcastPane])
 
     // Create a new pane
     const addPane = (type: 'empty' | 'terminal' | 'browser' | 'notes' | 'chat' | 'codeserver' = 'empty') => {
@@ -68,24 +91,11 @@ function App() {
         }
     }
 
-    // Close active pane (or first pane if none active)
+    // Close active pane (fallback to last visible pane)
     const closePane = () => {
-        if (paneIds.length <= 1) return // Keep at least one pane
-
-        const removePane = (node: MosaicNode<string> | null, idToRemove: string): MosaicNode<string> | null => {
-            if (!node) return null
-            if (typeof node === 'string') return node === idToRemove ? null : node
-
-            const first = removePane(node.first, idToRemove)
-            const second = removePane(node.second, idToRemove)
-
-            if (!first) return second as MosaicNode<string>
-            if (!second) return first as MosaicNode<string>
-            return { ...node, first, second }
-        }
-
-        const paneToRemove = paneIds[paneIds.length - 1] // Remove last pane
-        setLayout(removePane(layout, paneToRemove))
+        const paneToRemove = resolvePaneToClose()
+        if (!paneToRemove) return
+        closePaneWithCleanup(paneToRemove)
     }
 
     // Focus pane by index
@@ -145,6 +155,50 @@ function App() {
             window.removeEventListener('drop', handleDrop)
         }
     }, [handleKeyDown])
+
+    // Popout action bridge (popout window -> main renderer state)
+    useEffect(() => {
+        if (isPopout || !window.platform?.popout) return
+
+        const offAction = window.platform.popout.onAction((action: any) => {
+            if (!action || typeof action !== 'object') return
+
+            if (action.type === 'ready' && typeof action.paneId === 'string') {
+                const paneConfig = useLayoutStore.getState().panes[action.paneId]
+                if (paneConfig) {
+                    window.platform.popout?.stateRelay(action.paneId, {
+                        paneConfig,
+                        title: paneConfig.title ?? action.paneId,
+                    })
+                }
+                return
+            }
+
+            if (
+                action.type === 'pane:update' &&
+                typeof action.paneId === 'string' &&
+                action.paneConfig &&
+                typeof action.paneConfig === 'object'
+            ) {
+                updatePane(action.paneId, action.paneConfig as Partial<PaneConfig>)
+            }
+        })
+
+        return () => {
+            offAction()
+        }
+    }, [updatePane])
+
+    // Main renderer state -> popout windows
+    useEffect(() => {
+        if (isPopout || !window.platform?.popout) return
+        Object.entries(panes).forEach(([paneId, paneConfig]) => {
+            window.platform.popout?.stateRelay(paneId, {
+                paneConfig,
+                title: paneConfig.title ?? paneId,
+            })
+        })
+    }, [panes])
 
     return (
         <ContextMenuProvider>

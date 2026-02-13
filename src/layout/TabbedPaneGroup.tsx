@@ -2,6 +2,7 @@ import { X } from 'lucide-react'
 import { useLayoutStore } from './store'
 import { Pane } from './Pane'
 import { PANE_TYPES } from '../panes'
+import { useShortcutsStore } from '../hooks/useShortcuts'
 import { cn } from '../lib/utils'
 
 export interface TabGroup {
@@ -18,6 +19,7 @@ export function TabbedPaneGroup({ group }: TabbedPaneGroupProps) {
     const panes = useLayoutStore(s => s.panes)
     const setActiveTab = useLayoutStore(s => s.setActiveTab)
     const removeFromTabGroup = useLayoutStore(s => s.removeFromTabGroup)
+    const setActivePane = useShortcutsStore(s => s.setActivePane)
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
@@ -38,7 +40,10 @@ export function TabbedPaneGroup({ group }: TabbedPaneGroupProps) {
                                     ? 'bg-background text-foreground'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/30'
                             )}
-                            onClick={() => setActiveTab(group.id, paneId)}
+                            onClick={() => {
+                                setActiveTab(group.id, paneId)
+                                setActivePane(paneId)
+                            }}
                         >
                             <span className="text-[11px]">{typeInfo?.icon || '📦'}</span>
                             <span className="truncate max-w-24">{pane?.title || typeInfo?.label || paneId}</span>

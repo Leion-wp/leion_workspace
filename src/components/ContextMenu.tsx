@@ -39,7 +39,7 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
     const menuRef = useRef<HTMLDivElement>(null)
 
     const show = (x: number, y: number, items: MenuItem[]) => {
-        setState({ x, y, items, visible: true })
+        setState({ x, y, items: withClipboardItems(items), visible: true })
     }
 
     const hide = () => {
@@ -116,4 +116,125 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
             )}
         </ContextMenuContext.Provider>
     )
+}
+
+function withClipboardItems(items: MenuItem[]): MenuItem[] {
+    const existingLabels = new Set(items.map(i => i.label.toLowerCase().trim()))
+    const clipboardItems: MenuItem[] = []
+    const target = document.activeElement as HTMLElement | null
+    const selectedText = getCurrentSelectionText(target)
+    const canCopy = selectedText.length > 0
+    const canCut = canCopy && isEditableTarget(target)
+
+    if (!existingLabels.has('copy')) {
+        clipboardItems.push({
+            label: 'Copy',
+            icon: '📋',
+            disabled: !canCopy,
+            action: async () => {
+                if (!canCopy) return
+                try {
+                    await navigator.clipboard.writeText(selectedText)
+                } catch {
+                    document.execCommand('copy')
+                }
+            },
+        })
+    }
+
+    if (!existingLabels.has('cut')) {
+        clipboardItems.push({
+            label: 'Cut',
+            icon: '✂️',
+            disabled: !canCut,
+            action: async () => {
+                if (!canCut || !target) return
+                const text = getCurrentSelectionText(target)
+                if (!text) return
+                try {
+                    await navigator.clipboard.writeText(text)
+                    deleteCurrentSelection(target)
+                } catch {
+                    document.execCommand('cut')
+                }
+            },
+        })
+    }
+
+    if (!existingLabels.has('paste')) {
+        clipboardItems.push({
+            label: 'Paste',
+            icon: '📥',
+            action: async () => {
+                if (!target || !isEditableTarget(target)) return
+                try {
+                    const text = await navigator.clipboard.readText()
+                    insertTextAtCursor(target, text)
+                } catch {
+                    document.execCommand('paste')
+                }
+            },
+        })
+    }
+
+    if (!existingLabels.has('select all')) {
+        clipboardItems.push({
+            label: 'Select All',
+            icon: '🔠',
+            action: () => {
+                if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+                    target.select()
+                    return
+                }
+                document.execCommand('selectAll')
+            },
+        })
+    }
+
+    if (clipboardItems.length === 0) return items
+    if (items.length === 0) return clipboardItems
+    return [...items, { label: '', separator: true, action: () => { } }, ...clipboardItems]
+}
+
+function isEditableTarget(target: HTMLElement | null): boolean {
+    if (!target) return false
+    if (target instanceof HTMLInputElement) return !target.readOnly && !target.disabled
+    if (target instanceof HTMLTextAreaElement) return !target.readOnly && !target.disabled
+    return target.isContentEditable
+}
+
+function getCurrentSelectionText(target: HTMLElement | null): string {
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        const start = target.selectionStart ?? 0
+        const end = target.selectionEnd ?? 0
+        return target.value.slice(start, end)
+    }
+    const selection = window.getSelection()
+    return selection?.toString() ?? ''
+}
+
+function deleteCurrentSelection(target: HTMLElement): void {
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        const start = target.selectionStart ?? 0
+        const end = target.selectionEnd ?? 0
+        target.setRangeText('', start, end, 'start')
+        target.dispatchEvent(new Event('input', { bubbles: true }))
+        return
+    }
+    if (target.isContentEditable) {
+        document.execCommand('delete')
+    }
+}
+
+function insertTextAtCursor(target: HTMLElement, text: string): void {
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        const start = target.selectionStart ?? target.value.length
+        const end = target.selectionEnd ?? start
+        target.setRangeText(text, start, end, 'end')
+        target.dispatchEvent(new Event('input', { bubbles: true }))
+        return
+    }
+    if (target.isContentEditable) {
+        document.execCommand('insertText', false, text)
+    }
 }

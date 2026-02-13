@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Clipboard, X, ArrowRight, PlusSquare } from 'lucide-react'
 import { useLayoutStore, getAllPaneIds } from './store'
 import { PANE_TYPES } from '../panes'
+import { usePaneControlBus } from '../panes/paneControlBus'
 import { Button } from '@/components/ui/button'
 
 type ContentType = 'text' | 'code' | 'json' | 'url'
@@ -47,10 +48,14 @@ export function SmartClipboard() {
 
     const panes = useLayoutStore(s => s.panes)
     const layout = useLayoutStore(s => s.layout)
+    const tabGroups = useLayoutStore(s => s.tabGroups)
     const createPaneWithContent = useLayoutStore(s => s.createPaneWithContent)
     const updatePane = useLayoutStore(s => s.updatePane)
 
-    const paneIds = getAllPaneIds(layout)
+    const paneIds = useMemo(() => {
+        const ids = getAllPaneIds(layout)
+        return ids.flatMap(id => tabGroups[id]?.paneIds || [id])
+    }, [layout, tabGroups])
 
     // Build target list from existing panes
     const targets = useMemo(() => {
@@ -107,7 +112,7 @@ export function SmartClipboard() {
         }
     }, [])
 
-    const handleSelectPane = (paneId: string) => {
+    const handleSelectPane = async (paneId: string) => {
         const pane = panes[paneId]
         if (!pane) return
 
@@ -123,7 +128,25 @@ export function SmartClipboard() {
                 break
             }
             case 'chat': {
-                updatePane(paneId, { data: { ...pane.data, inputDraft: content, lastPaste: Date.now() } })
+                try {
+                    await usePaneControlBus.getState().dispatch(paneId, {
+                        type: 'chat:inject',
+                        payload: { text: content, fromClipboard: true },
+                    })
+                } catch {
+                    updatePane(paneId, { data: { ...pane.data, inputDraft: content, lastPaste: Date.now() } })
+                }
+                break
+            }
+            case 'terminal': {
+                try {
+                    await usePaneControlBus.getState().dispatch(paneId, {
+                        type: 'terminal:input',
+                        payload: { data: content, fromClipboard: true },
+                    })
+                } catch {
+                    // No terminal handler yet (pane not initialized), ignore.
+                }
                 break
             }
             case 'browser': {

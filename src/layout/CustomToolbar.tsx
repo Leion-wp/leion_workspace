@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { useLayoutStore } from './store';
 import { useBroadcastStore } from './broadcastStore';
 import { useFusionStore } from '../panes/fusionStore';
+import { closePaneWithCleanup } from './paneLifecycle';
 import { cn } from '../lib/utils';
 
 interface CustomToolbarProps {
@@ -18,6 +19,7 @@ export function CustomToolbar({ title, path, paneId, collapsed, onToggleCollapse
     const pane = useLayoutStore(s => paneId ? s.panes[paneId] : null);
     const isBroadcasting = useBroadcastStore(s => paneId ? s.isBroadcasting(paneId) : false);
     const toggleBroadcast = useBroadcastStore(s => s.toggleBroadcast);
+    const isPopoutWindow = new URLSearchParams(window.location.search).has('popout');
 
     const fusionColor = useFusionStore(s => paneId ? s.getFusionColor(paneId) : null);
     const isBroadcastable = pane?.type === 'chat' || pane?.type === 'terminal';
@@ -84,7 +86,7 @@ export function CustomToolbar({ title, path, paneId, collapsed, onToggleCollapse
                         )}
 
                         {/* Pop Out */}
-                        {!collapsed && paneId && (
+                        {!collapsed && paneId && !isPopoutWindow && (
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -128,7 +130,13 @@ export function CustomToolbar({ title, path, paneId, collapsed, onToggleCollapse
                             variant="ghost"
                             size="icon"
                             className="h-5 w-5 rounded-sm hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={() => mosaicActions.remove(path)}
+                            onClick={() => {
+                                if (paneId) {
+                                    closePaneWithCleanup(paneId);
+                                } else {
+                                    mosaicActions.remove(path);
+                                }
+                            }}
                             title="Close"
                         >
                             <X size={12} />

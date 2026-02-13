@@ -19,6 +19,14 @@ let mainWindow;
 const terminals = new Map(); // Store terminal processes
 const popoutWindows = new Map(); // paneId -> BrowserWindow
 
+function sendToAllWindows(channel, ...args) {
+    for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+            win.webContents.send(channel, ...args);
+        }
+    }
+}
+
 function addAllowedPathRoot(targetPath) {
     if (!targetPath) return;
     allowedPathRoots.add(path.resolve(targetPath));
@@ -186,10 +194,31 @@ ipcMain.handle('fs:openFolderDialog', async () => {
 const pty = require('node-pty');
 
 ipcMain.handle('terminal:create', async (_, terminalId, options = {}) => {
+    // Reuse existing PTY when the same pane is rendered in multiple windows (e.g. popout).
+    if (terminals.has(terminalId)) {
+        return true;
+    }
+
     const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
 
     let env = { ...process.env };
     let initCommands = []; // Commands to run on startup
+
+    // Shared terminal profile options (renderer-controlled)
+    if (options.env && typeof options.env === 'object') {
+        for (const [key, value] of Object.entries(options.env)) {
+            if (typeof key !== 'string' || !key) continue;
+            if (value === undefined || value === null) continue;
+            env[key] = String(value);
+        }
+    }
+    if (Array.isArray(options.initCommands)) {
+        initCommands.push(
+            ...options.initCommands
+                .map((cmd) => String(cmd).trim())
+                .filter(Boolean)
+        );
+    }
 
     // Gemini Terminal Integration
     if (options.type === 'gemini') {
@@ -300,11 +329,11 @@ ipcMain.handle('terminal:create', async (_, terminalId, options = {}) => {
     terminals.set(terminalId, ptyProcess);
 
     ptyProcess.onData((data) => {
-        mainWindow?.webContents.send(`terminal:data:${terminalId}`, data);
+        sendToAllWindows(`terminal:data:${terminalId}`, data);
     });
 
     ptyProcess.onExit(({ exitCode }) => {
-        mainWindow?.webContents.send(`terminal:exit:${terminalId}`, exitCode);
+        sendToAllWindows(`terminal:exit:${terminalId}`, exitCode);
         terminals.delete(terminalId);
     });
 
