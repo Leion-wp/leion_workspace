@@ -57,7 +57,13 @@ Desktop.ini
 # Local assistant / pipeline artifacts
 .claude/
 *.intent.json
-pipeline/*.intent.json
+pipeline/
 
 # Optional local scripts
 *.ps1
+
+
+#SKILL
+skills/
+
+plan.md

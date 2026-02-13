@@ -55,10 +55,11 @@ interface PlatformBridge {
         onChunk: (streamId: string, callback: (chunk: { text: string; done: boolean; error?: string }) => void) => () => void;
     };
     codex?: {
-        initialize: (options: { clientInfo: { name: string; version: string } }) => Promise<{ sessionId: string }>;
-        turn: (options: { sessionId: string; message: string }) => Promise<void>;
+        initialize: (options: { clientInfo: { name: string; version: string } }) => Promise<{ sessionId: string | null; [key: string]: unknown }>;
+        turn: (options: { sessionId?: string | null; message: string }) => Promise<{ ok: boolean; usedMethod?: string; sessionId?: string | null; result?: unknown }>;
         approve: (sessionId: string, toolCallId: string, decision: 'allow' | 'deny' | 'allow-always') => Promise<void>;
         stop: () => Promise<void>;
+        rpc: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
         onEvent: (callback: (event: any) => void) => () => void;
         onExit: (callback: (code: number) => void) => () => void;
     };

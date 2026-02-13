@@ -86,6 +86,7 @@ function App() {
             ? { direction: 'row', first: layout, second: newId, splitPercentage: 70 }
             : newId
         setLayout(newLayout)
+        setActivePane(newId)
         if (type !== 'empty') {
             setTimeout(() => setPaneType(newId, type), 100)
         }

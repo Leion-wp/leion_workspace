@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('platform', {
         turn: (options) => ipcRenderer.invoke('codex:turn', options),
         approve: (sessionId, toolCallId, decision) => ipcRenderer.invoke('codex:approve', sessionId, toolCallId, decision),
         stop: () => ipcRenderer.invoke('codex:stop'),
+        rpc: (method, params) => ipcRenderer.invoke('codex:rpc', { method, params }),
         onEvent: (callback) => {
             const listener = (_, event) => callback(event);
             ipcRenderer.on('codex:event', listener);
