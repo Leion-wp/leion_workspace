@@ -1251,6 +1251,10 @@ ipcMain.handle('codex:rpc', async (_, payload) => {
         throw new Error('Codex rpc error: missing method');
     }
 
+    const params = (payload?.params && typeof payload.params === 'object')
+        ? payload.params
+        : {};
+
     try {
         const params = (payload?.params && typeof payload.params === 'object') ? payload.params : {};
 
