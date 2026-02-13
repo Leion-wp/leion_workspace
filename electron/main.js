@@ -996,6 +996,8 @@ let codexProcess = null;
 let codexRequestId = 0;
 const codexPendingRequests = new Map(); // id -> { resolve, reject }
 let codexBuffer = '';
+let codexInitialized = false;
+let codexInitInFlight = null;
 
 function startCodexProcess() {
     if (codexProcess) return Promise.resolve();
@@ -1044,6 +1046,8 @@ function startCodexProcess() {
             console.error('[Codex] Process error:', err.message);
             mainWindow?.webContents.send('codex:exit', -1);
             codexProcess = null;
+            codexInitialized = false;
+            codexInitInFlight = null;
             reject(err);
         });
 
@@ -1051,6 +1055,8 @@ function startCodexProcess() {
             console.log('[Codex] Process exited with code:', code);
             mainWindow?.webContents.send('codex:exit', code || 0);
             codexProcess = null;
+            codexInitialized = false;
+            codexInitInFlight = null;
             // Reject all pending requests
             for (const [, { reject: rej }] of codexPendingRequests) {
                 rej(new Error('Codex process exited'));
@@ -1071,6 +1077,33 @@ function sendCodexRPC(method, params) {
         codexPendingRequests.set(id, { resolve, reject });
         codexProcess.stdin.write(msg);
     });
+}
+
+function getDefaultCodexClientInfo() {
+    return {
+        name: 'Leion',
+        version: typeof app?.getVersion === 'function' ? app.getVersion() : '1.0',
+    };
+}
+
+async function ensureCodexInitialized(options = {}) {
+    await startCodexProcess();
+
+    if (codexInitialized) return null;
+    if (codexInitInFlight) return codexInitInFlight;
+
+    const clientInfo = options?.clientInfo || getDefaultCodexClientInfo();
+    codexInitInFlight = (async () => {
+        const result = await sendCodexRPC('initialize', { clientInfo });
+        codexInitialized = true;
+        return result;
+    })();
+
+    try {
+        return await codexInitInFlight;
+    } finally {
+        codexInitInFlight = null;
+    }
 }
 
 function compactObject(input) {
@@ -1141,9 +1174,8 @@ async function sendCodexTurnAdaptive({ sessionId, message }) {
 
 ipcMain.handle('codex:initialize', async (_, options) => {
     try {
-        await startCodexProcess();
-        const result = await sendCodexRPC('initialize', {
-            clientInfo: options.clientInfo || { name: 'Leion', version: '1.0' },
+        const result = await ensureCodexInitialized({
+            clientInfo: options?.clientInfo || getDefaultCodexClientInfo(),
         });
         return {
             ...(result || {}),
@@ -1156,7 +1188,7 @@ ipcMain.handle('codex:initialize', async (_, options) => {
 
 ipcMain.handle('codex:turn', async (_, options) => {
     try {
-        await startCodexProcess();
+        await ensureCodexInitialized();
         return await sendCodexTurnAdaptive({
             sessionId: options?.sessionId || null,
             message: options?.message || '',
@@ -1168,6 +1200,7 @@ ipcMain.handle('codex:turn', async (_, options) => {
 
 ipcMain.handle('codex:approve', async (_, sessionId, toolCallId, decision) => {
     try {
+        await ensureCodexInitialized();
         await sendCodexRPC('tool.approve', { sessionId, toolCallId, decision });
     } catch (err) {
         throw new Error(`Codex approve error: ${err.message}`);
@@ -1179,6 +1212,8 @@ ipcMain.handle('codex:stop', async () => {
         codexProcess.kill();
         codexProcess = null;
     }
+    codexInitialized = false;
+    codexInitInFlight = null;
     return { success: true };
 });
 
@@ -1188,9 +1223,23 @@ ipcMain.handle('codex:rpc', async (_, payload) => {
         throw new Error('Codex rpc error: missing method');
     }
 
+    const params = (payload?.params && typeof payload.params === 'object')
+        ? payload.params
+        : {};
+
     try {
-        await startCodexProcess();
-        return await sendCodexRPC(method, payload?.params ?? {});
+        if (method === 'initialize') {
+            const result = await ensureCodexInitialized({
+                clientInfo: params?.clientInfo || getDefaultCodexClientInfo(),
+            });
+            return {
+                ...(result || {}),
+                sessionId: extractCodexSessionId(result) || null,
+            };
+        }
+
+        await ensureCodexInitialized();
+        return await sendCodexRPC(method, params);
     } catch (err) {
         throw new Error(`Codex rpc error (${method}): ${err.message}`);
     }
