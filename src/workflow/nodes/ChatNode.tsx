@@ -4,15 +4,14 @@ import type { WorkflowNodeData } from '../types';
 import { BaseNode } from './BaseNode';
 import { OutputBadge } from './OutputBadge';
 
-export default function ChatNode({ id, data, selected }: NodeProps<WorkflowNodeData>) {
+export default function ChatNode(props: NodeProps<WorkflowNodeData>) {
+    const { id, data } = props;
     const provider = data.chatProvider ?? 'Claude';
     const prompt = data.chatPrompt;
 
     return (
         <BaseNode
-            id={id}
-            data={data}
-            selected={selected}
+            {...props}
             icon={<MessageSquare size={16} />}
             className="w-72"
             headerAction={

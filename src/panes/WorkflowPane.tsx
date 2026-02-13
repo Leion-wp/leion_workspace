@@ -584,7 +584,7 @@ function WorkflowLayout({ data, onUpdate }: WorkflowPaneProps) {
                         {/* Drag Handle */}
                         <div
                             className="h-1.5 w-full bg-border/30 hover:bg-primary/50 cursor-ns-resize flex items-center justify-center transition-colors"
-                            onMouseDown={(e) => {
+                            onMouseDown={() => {
                                 isResizingPanel.current = true;
                                 document.body.style.cursor = 'ns-resize';
                             }}

@@ -21,7 +21,7 @@ export default function HttpNode(props: NodeProps<WorkflowNodeData>) {
                 {url ? (
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                            <Badge variant={method === 'GET' ? 'classic' : 'destructive'} className="text-[10px] px-1 py-0 h-5">
+                            <Badge variant={method === 'GET' ? 'default' : 'destructive'} className="text-[10px] px-1 py-0 h-5">
                                 {method}
                             </Badge>
                             <span className="text-xs font-mono text-muted-foreground truncate" title={url}>

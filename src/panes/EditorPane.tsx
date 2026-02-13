@@ -1,6 +1,5 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
-import { editorCommandService } from '../services/editorCommandService';
 import { usePaneStateStore } from './paneStateStore';
 import { create } from 'zustand';
 import { useState } from 'react';
@@ -80,7 +79,7 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
     const [showSidebar, setShowSidebar] = useState(false);
     const [rootPath, setRootPath] = useState<string>('');
 
-    const handlePaneOpenFile = async (path: string, name: string) => {
+    const handlePaneOpenFile = async (path: string, _name: string) => {
         if (!window.platform?.fs) return;
         try {
             const content = await window.platform.fs.readFile(path);
@@ -169,7 +168,7 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
         return () => window.removeEventListener('keydown', handler);
     }, [handleSave]);
 
-    const handleEditorMount: OnMount = (editor, monaco) => {
+    const handleEditorMount: OnMount = () => {
         // Configure editor settings here if needed
     };
 

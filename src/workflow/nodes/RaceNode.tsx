@@ -5,8 +5,6 @@ import { BaseNode } from './BaseNode';
 import { Badge } from '../../components/ui/badge';
 
 export default function RaceNode(props: NodeProps<WorkflowNodeData>) {
-    const { data } = props;
-
     return (
         <BaseNode
             {...props}

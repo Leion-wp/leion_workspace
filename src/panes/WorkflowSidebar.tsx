@@ -110,7 +110,7 @@ export default function WorkflowSidebar() {
         e.dataTransfer.effectAllowed = 'move';
     };
 
-    const handleSectionDragOver = (e: React.DragEvent, targetId: string) => {
+    const handleSectionDragOver = (e: React.DragEvent, _targetId: string) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
     };

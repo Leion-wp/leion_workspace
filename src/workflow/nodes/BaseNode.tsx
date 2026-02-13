@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Handle, Position, type NodeProps, NodeResizer } from 'reactflow';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
-import { Loader, CheckCircle, XCircle, ChevronDown, ChevronRight, GripHorizontal } from 'lucide-react';
+import { Loader, CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import type { WorkflowNodeData, WorkflowNodeType } from '../types';
 
 interface BaseNodeProps extends NodeProps<WorkflowNodeData> {

@@ -1,10 +1,11 @@
 import { useWorkflowStore } from '../store';
+import { cn } from '../../lib/utils';
 
 /**
  * Small badge shown on a node after successful execution,
  * summarizing the output (key count or value preview).
  */
-export function OutputBadge({ nodeId }: { nodeId: string }) {
+export function OutputBadge({ nodeId, className }: { nodeId: string; className?: string }) {
     const stepResult = useWorkflowStore((s) => s.executionContext?.stepResults[nodeId] ?? null);
 
     if (!stepResult || stepResult.status !== 'success') return null;
@@ -25,7 +26,7 @@ export function OutputBadge({ nodeId }: { nodeId: string }) {
     }
 
     return (
-        <div className="output-badge" title={JSON.stringify(output, null, 2)}>
+        <div className={cn('output-badge', className)} title={JSON.stringify(output, null, 2)}>
             {preview}
         </div>
     );
