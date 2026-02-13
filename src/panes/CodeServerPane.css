@@ -1,0 +1,109 @@
+.codeserver-pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-primary);
+}
+
+.codeserver-loading {
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--text-secondary);
+}
+
+.codeserver-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.codeserver-hint {
+    font-size: 12px;
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.codeserver-error {
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px;
+    text-align: center;
+}
+
+.codeserver-error-icon {
+    font-size: 48px;
+}
+
+.codeserver-error h3 {
+    font-size: 18px;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.codeserver-error p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    max-width: 400px;
+    line-height: 1.5;
+}
+
+.codeserver-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.codeserver-btn {
+    padding: 10px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.1s;
+}
+
+.codeserver-btn:hover {
+    background: var(--bg-primary);
+}
+
+.codeserver-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.codeserver-btn.primary:hover {
+    background: var(--accent-hover);
+}
+
+.codeserver-install-hint {
+    margin-top: 20px;
+    padding: 12px 20px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+}
+
+.codeserver-install-hint code {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    color: var(--accent);
+}
+
+.codeserver-webview {
+    flex: 1;
+    border: none;
+}

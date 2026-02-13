@@ -1,0 +1,108 @@
+.history-panel {
+    background: #161b22;
+    border-left: 1px solid #30363d;
+    width: 240px;
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    overflow: hidden;
+}
+
+.history-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #30363d;
+    color: #8b949e;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.history-panel-save-btn {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    color: #c9d1d9;
+    font-size: 11px;
+    cursor: pointer;
+    text-transform: none;
+    font-weight: normal;
+}
+
+.history-panel-save-btn:hover {
+    background: #2d333b;
+    border-color: #58a6ff;
+    color: #58a6ff;
+}
+
+.history-panel-empty {
+    padding: 12px;
+    color: #6e7681;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+.history-panel-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.history-panel-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    background: #21262d;
+    border: 1px solid #30363d;
+}
+
+.history-panel-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.history-panel-item-label {
+    color: #c9d1d9;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-panel-item-time {
+    color: #6e7681;
+    font-size: 10px;
+}
+
+.history-panel-restore-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #8b949e;
+    cursor: pointer;
+}
+
+.history-panel-restore-btn:hover {
+    background: #2d333b;
+    border-color: #30363d;
+    color: #58a6ff;
+}

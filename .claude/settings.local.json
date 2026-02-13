@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vitest:*)",
+      "Bash(grep:*)",
+      "Bash(node -e:*)",
+      "Bash(xargs:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm test:*)",
+      "Bash(python:*)",
+      "Bash(node_modules.binvitest run:*)",
+      "Bash(\"./node_modules/.bin/vitest\" run)",
+      "Bash(npm ls:*)"
+    ]
+  }
+}

@@ -1,0 +1,139 @@
+.chat-pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-primary);
+}
+
+.chat-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+}
+
+.chat-provider-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.chat-provider-btn:hover {
+    background: var(--bg-primary);
+    border-color: var(--accent);
+}
+
+.chat-provider-icon {
+    font-size: 16px;
+}
+
+.chat-provider-arrow {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+}
+
+.chat-provider-picker {
+    position: absolute;
+    top: 100%;
+    left: 12px;
+    margin-top: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    overflow: hidden;
+}
+
+.chat-provider-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.chat-provider-option:hover {
+    background: var(--bg-tertiary);
+}
+
+.chat-provider-option.active {
+    background: var(--accent);
+    color: white;
+}
+
+.chat-custom-url {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+}
+
+.chat-custom-url input {
+    flex: 1;
+    padding: 6px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.chat-custom-url input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.chat-custom-url button {
+    padding: 6px 16px;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.chat-custom-url button:hover {
+    background: var(--accent-hover);
+}
+
+.chat-webview {
+    flex: 1;
+    border: none;
+}
+
+.chat-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-secondary);
+}
+
+.chat-empty span {
+    font-size: 48px;
+}
+
+.chat-empty p {
+    font-size: 14px;
+}

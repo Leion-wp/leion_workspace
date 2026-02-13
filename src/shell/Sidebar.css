@@ -1,0 +1,361 @@
+.sidebar {
+    width: 220px;
+    min-width: 220px;
+    height: 100%;
+    background: #1a1a1a;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.2s ease, min-width 0.2s ease;
+    overflow: hidden;
+}
+
+.sidebar.collapsed {
+    width: 40px;
+    min-width: 40px;
+}
+
+.sidebar-toggle {
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #333;
+    color: #888;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.sidebar-toggle:hover {
+    background: #252525;
+    color: #fff;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-bottom: 1px solid #333;
+}
+
+.sidebar-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sidebar-add-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 4px;
+    background: #333;
+    color: #ccc;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.sidebar-add-btn:hover {
+    background: #094771;
+    color: #fff;
+}
+
+.sidebar-panes {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.sidebar-pane-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: #ccc;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.sidebar-pane-item:hover {
+    background: #252525;
+}
+
+.sidebar-pane-item.dragging {
+    opacity: 0.5;
+    background: #1a1a1a;
+}
+
+.sidebar-pane-item.drag-over {
+    background: #094771;
+    border-top: 2px solid #00b4d8;
+}
+
+.sidebar-pane-icon {
+    font-size: 14px;
+}
+
+.sidebar-pane-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-pane-index {
+    font-size: 10px;
+    color: #666;
+    background: #333;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.sidebar-pane-edit-input {
+    flex: 1;
+    background: #1e1e1e;
+    border: 1px solid #094771;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 6px;
+    outline: none;
+    min-width: 0;
+}
+
+/* Pane groups and tabs */
+.sidebar-pane-group {
+    margin-bottom: 2px;
+}
+
+.sidebar-pane-item.has-tabs {
+    cursor: pointer;
+}
+
+.sidebar-pane-expand {
+    font-size: 8px;
+    color: #666;
+    width: 12px;
+    transition: transform 0.1s;
+}
+
+.sidebar-tabs {
+    padding-left: 20px;
+    border-left: 1px solid #333;
+    margin-left: 18px;
+    margin-bottom: 4px;
+}
+
+.sidebar-tab-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.1s;
+}
+
+.sidebar-tab-item:hover {
+    background: #252525;
+    color: #ccc;
+}
+
+.sidebar-tab-item.active {
+    background: #094771;
+    color: #fff;
+}
+
+.sidebar-tab-favicon {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.sidebar-tab-favicon-placeholder {
+    font-size: 10px;
+    width: 12px;
+    text-align: center;
+}
+
+.sidebar-tab-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-tab-loading {
+    font-size: 10px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.sidebar-tab-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    margin-top: 2px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #555;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+
+.sidebar-tab-add:hover {
+    background: #252525;
+    color: #888;
+}
+
+.sidebar-quick-add {
+    padding: 8px;
+    border-top: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sidebar-quick-add button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+
+.sidebar-quick-add button:hover {
+    background: #252525;
+    color: #fff;
+}
+
+.sidebar-spaces {
+    padding: 8px;
+    border-top: 1px solid #333;
+}
+
+.sidebar-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+}
+
+.sidebar-space-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    color: #888;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.1s;
+    position: relative;
+}
+
+.sidebar-space-item:hover {
+    background: #252525;
+}
+
+.sidebar-space-item.active {
+    background: #094771;
+    color: #fff;
+}
+
+.sidebar-space-icon {
+    font-size: 14px;
+}
+
+.sidebar-space-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-space-input {
+    flex: 1;
+    background: #1e1e1e;
+    border: 1px solid #094771;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 13px;
+    padding: 2px 6px;
+    outline: none;
+}
+
+.sidebar-space-delete {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #666;
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s, background 0.1s;
+}
+
+.sidebar-space-item:hover .sidebar-space-delete {
+    opacity: 1;
+}
+
+.sidebar-space-delete:hover {
+    background: #5a1d1d;
+    color: #ff6b6b;
+}
+
+.sidebar-add-space {
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px 10px;
+    border: 1px dashed #444;
+    border-radius: 4px;
+    background: transparent;
+    color: #666;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.1s, color 0.1s;
+}
+
+.sidebar-add-space:hover {
+    border-color: #094771;
+    color: #ccc;
+}
+
+.sidebar-create-space {
+    padding: 4px 0;
+}
+
+.sidebar-create-space .sidebar-space-input {
+    width: 100%;
+}

@@ -1,0 +1,7 @@
+node_modules
+*.ps1
+nul
+*.test.ts 
+*.intent.json
+.env
+*.log

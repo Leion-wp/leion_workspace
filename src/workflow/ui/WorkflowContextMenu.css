@@ -1,0 +1,58 @@
+.workflow-context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    min-width: 160px;
+    animation: ctx-menu-appear 0.08s ease;
+}
+
+@keyframes ctx-menu-appear {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.workflow-context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    background: none;
+    border: none;
+    border-radius: 5px;
+    color: #c9d1d9;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+}
+
+.workflow-context-menu-item:hover {
+    background: #21262d;
+    color: #f0f6fc;
+}
+
+.workflow-context-menu-item.danger {
+    color: #f85149;
+}
+
+.workflow-context-menu-item.danger:hover {
+    background: #2d1117;
+}
+
+.workflow-context-menu-shortcut {
+    margin-left: auto;
+    font-size: 11px;
+    color: #8b949e;
+    font-family: monospace;
+}
+
+.workflow-context-menu-divider {
+    height: 1px;
+    background: #30363d;
+    margin: 4px 0;
+}

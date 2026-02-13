@@ -1,0 +1,430 @@
+/* --- Test Runner Panel (right sidebar) --- */
+
+.test-runner-panel {
+    width: 320px;
+    min-width: 280px;
+    background-color: #0d1117;
+    border-left: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.test-runner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    height: 36px;
+    min-height: 36px;
+    border-bottom: 1px solid #30363d;
+    background-color: #161b22;
+}
+
+.test-runner-header-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #f0f6fc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.test-runner-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.test-runner-icon-btn {
+    background: none;
+    border: none;
+    color: #8b949e;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.test-runner-icon-btn:hover {
+    background-color: #21262d;
+    color: #f0f6fc;
+}
+
+.test-runner-icon-btn.danger:hover {
+    color: #f85149;
+}
+
+/* Run all button */
+.test-runner-run-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: #238636;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.test-runner-run-btn:hover {
+    background: #2ea043;
+}
+
+.test-runner-run-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Summary bar */
+.test-runner-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid #30363d;
+    background-color: #161b22;
+    font-size: 11px;
+    color: #8b949e;
+}
+
+.test-runner-summary-stat {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.test-runner-summary-stat.passed {
+    color: #56d364;
+}
+
+.test-runner-summary-stat.failed {
+    color: #f85149;
+}
+
+.test-runner-summary-stat.total {
+    color: #8b949e;
+}
+
+.test-runner-summary-duration {
+    margin-left: auto;
+    color: #8b949e;
+}
+
+/* Scrollable body */
+.test-runner-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.test-runner-empty {
+    font-size: 12px;
+    color: #8b949e;
+    text-align: center;
+    padding: 24px 12px;
+    line-height: 1.5;
+}
+
+/* Test case card */
+.test-runner-case {
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.test-runner-case.passed {
+    border-color: #238636;
+}
+
+.test-runner-case.failed {
+    border-color: #da3633;
+}
+
+.test-runner-case-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background-color: #161b22;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.test-runner-case-header:hover {
+    background-color: #1c2128;
+}
+
+.test-runner-case-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.test-runner-case-indicator.pending {
+    background-color: #484f58;
+}
+
+.test-runner-case-indicator.passed {
+    background-color: #56d364;
+}
+
+.test-runner-case-indicator.failed {
+    background-color: #f85149;
+}
+
+.test-runner-case-indicator.running {
+    background-color: #d29922;
+    animation: test-runner-pulse 1s ease-in-out infinite;
+}
+
+@keyframes test-runner-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.test-runner-case-name {
+    font-weight: 600;
+    color: #f0f6fc;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.test-runner-case-duration {
+    font-size: 10px;
+    color: #8b949e;
+    flex-shrink: 0;
+}
+
+.test-runner-case-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.test-runner-case-actions .test-runner-icon-btn {
+    padding: 2px;
+}
+
+/* Expanded case details */
+.test-runner-case-details {
+    padding: 8px 10px;
+    border-top: 1px solid #30363d;
+    background-color: #0d1117;
+}
+
+.test-runner-case-description {
+    font-size: 11px;
+    color: #8b949e;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.test-runner-assertion {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.test-runner-assertion-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.test-runner-assertion-icon.passed {
+    color: #56d364;
+}
+
+.test-runner-assertion-icon.failed {
+    color: #f85149;
+}
+
+.test-runner-assertion-icon.pending {
+    color: #484f58;
+}
+
+.test-runner-assertion-message {
+    color: #c9d1d9;
+    word-break: break-word;
+}
+
+.test-runner-assertion-message.failed {
+    color: #f85149;
+}
+
+/* Add test form */
+.test-runner-form {
+    padding: 8px;
+    border-top: 1px solid #30363d;
+    background-color: #161b22;
+}
+
+.test-runner-form-group {
+    margin-bottom: 8px;
+}
+
+.test-runner-form-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #8b949e;
+    margin-bottom: 4px;
+}
+
+.test-runner-form-input {
+    width: 100%;
+    padding: 4px 8px;
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #f0f6fc;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.test-runner-form-input:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+.test-runner-form-textarea {
+    width: 100%;
+    padding: 4px 8px;
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #f0f6fc;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    resize: vertical;
+    min-height: 48px;
+    box-sizing: border-box;
+}
+
+.test-runner-form-textarea:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+.test-runner-form-select {
+    width: 100%;
+    padding: 4px 8px;
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #f0f6fc;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.test-runner-form-select:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+.test-runner-form-row {
+    display: flex;
+    gap: 6px;
+    align-items: flex-end;
+}
+
+.test-runner-form-row > * {
+    flex: 1;
+}
+
+.test-runner-form-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.test-runner-form-btn {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #30363d;
+    background-color: #21262d;
+    color: #c9d1d9;
+}
+
+.test-runner-form-btn:hover {
+    background-color: #30363d;
+    color: #f0f6fc;
+}
+
+.test-runner-form-btn.primary {
+    background-color: #238636;
+    border-color: #238636;
+    color: #ffffff;
+}
+
+.test-runner-form-btn.primary:hover {
+    background-color: #2ea043;
+}
+
+/* Assertion builder in form */
+.test-runner-assertion-builder {
+    margin-top: 8px;
+}
+
+.test-runner-assertion-builder-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #8b949e;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.test-runner-assertion-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    margin-bottom: 6px;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    background-color: #0d1117;
+}
+
+.test-runner-assertion-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.test-runner-assertion-entry-type {
+    font-size: 10px;
+    font-weight: 600;
+    color: #58a6ff;
+    text-transform: uppercase;
+}
+
+/* Section titles inside form */
+.test-runner-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #58a6ff;
+    margin-top: 10px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}

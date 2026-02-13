@@ -1,0 +1,130 @@
+.workflow-toolbar {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 8px;
+    background-color: #0d1117;
+    border-bottom: 1px solid #30363d;
+    gap: 8px;
+}
+
+.workflow-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.workflow-toolbar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.workflow-toolbar-right {
+    display: flex;
+    align-items: center;
+}
+
+.workflow-toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.workflow-toolbar-btn.run {
+    background-color: #238636;
+    color: #fff;
+}
+
+.workflow-toolbar-btn.run:hover {
+    background-color: #2ea043;
+}
+
+.workflow-toolbar-btn.run:disabled {
+    background-color: #21262d;
+    color: #484f58;
+    cursor: not-allowed;
+}
+
+.workflow-toolbar-btn.stop {
+    background-color: #da3633;
+    color: #fff;
+}
+
+.workflow-toolbar-btn.stop:hover {
+    background-color: #f85149;
+}
+
+.workflow-toolbar-name {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #f0f6fc;
+    text-align: center;
+    max-width: 300px;
+    width: 100%;
+    outline: none;
+}
+
+.workflow-toolbar-name:hover {
+    border-color: #30363d;
+}
+
+.workflow-toolbar-name:focus {
+    border-color: #58a6ff;
+    background-color: #0d1117;
+}
+
+.workflow-toolbar-errors {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #d29922;
+    max-width: 250px;
+    overflow: hidden;
+}
+
+.workflow-toolbar-errors span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workflow-toolbar-btn.icon {
+    background: none;
+    color: #8b949e;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.workflow-toolbar-btn.icon:hover {
+    background-color: #21262d;
+    color: #f0f6fc;
+}
+
+.workflow-toolbar-btn.icon.active {
+    color: #58a6ff;
+}
+
+.workflow-toolbar-separator {
+    width: 1px;
+    height: 18px;
+    background-color: #30363d;
+    margin: 0 2px;
+}

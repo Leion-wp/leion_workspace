@@ -1,0 +1,304 @@
+.workflow-property-panel {
+    width: 280px;
+    min-width: 280px;
+    background-color: #161b22;
+    border-left: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.workflow-property-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid #30363d;
+    background-color: #0d1117;
+}
+
+.workflow-property-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #f0f6fc;
+    overflow: hidden;
+}
+
+.workflow-property-panel-title span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workflow-property-breakpoint-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: #8b949e;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.workflow-property-breakpoint-btn:hover {
+    background-color: #21262d;
+    color: #d29922;
+    border-color: #d29922;
+}
+
+.workflow-property-breakpoint-btn.active {
+    color: #d29922;
+    border-color: #d29922;
+    background-color: #2d1b00;
+}
+
+.workflow-property-panel-close {
+    background: none;
+    border: none;
+    color: #8b949e;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.workflow-property-panel-close:hover {
+    background-color: #21262d;
+    color: #f0f6fc;
+}
+
+.workflow-property-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.workflow-property-description {
+    font-size: 12px;
+    color: #8b949e;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.workflow-property-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.workflow-property-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.workflow-property-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.workflow-property-field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #f0f6fc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.workflow-property-field-type {
+    font-size: 10px;
+    font-weight: 400;
+    color: #8b949e;
+    background-color: #21262d;
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+
+.workflow-property-field-hint {
+    font-size: 11px;
+    color: #8b949e;
+    line-height: 1.3;
+}
+
+.workflow-property-field-input {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    color: #f0f6fc;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    outline: none;
+}
+
+.workflow-property-field-input:focus {
+    border-color: #58a6ff;
+    box-shadow: 0 0 0 1px #58a6ff;
+}
+
+.workflow-property-field-input::placeholder {
+    color: #484f58;
+}
+
+.workflow-property-empty {
+    font-size: 12px;
+    color: #8b949e;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.workflow-property-field-textarea {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    color: #f0f6fc;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.4;
+}
+
+.workflow-property-field-textarea:focus {
+    border-color: #58a6ff;
+    box-shadow: 0 0 0 1px #58a6ff;
+}
+
+.workflow-property-field-textarea.invalid {
+    border-color: #da3633;
+}
+
+.workflow-property-field-textarea.invalid:focus {
+    box-shadow: 0 0 0 1px #da3633;
+}
+
+.workflow-property-field-textarea::placeholder {
+    color: #484f58;
+}
+
+.workflow-property-hint {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #30363d;
+    font-size: 11px;
+    color: #8b949e;
+    line-height: 1.4;
+}
+
+.workflow-property-hint code {
+    background-color: #21262d;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 10px;
+    color: #58a6ff;
+}
+
+/* Continue on Error checkbox */
+.workflow-property-continue-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #f0f6fc;
+    cursor: pointer;
+}
+
+.workflow-property-continue-error input[type="checkbox"] {
+    accent-color: #58a6ff;
+    cursor: pointer;
+}
+
+/* Node Output Inspector */
+.workflow-property-output {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #30363d;
+}
+
+.workflow-property-output-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.workflow-property-output-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.workflow-property-output-status.status-success {
+    color: #56d364;
+}
+
+.workflow-property-output-status.status-error {
+    color: #f85149;
+}
+
+.workflow-property-output-status.status-skipped {
+    color: #8b949e;
+}
+
+.workflow-property-output-duration {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #8b949e;
+}
+
+.workflow-property-output-error {
+    background-color: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 12px;
+    color: #f85149;
+    margin-bottom: 8px;
+}
+
+.workflow-property-output-json {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 11px;
+    color: #f0f6fc;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    overflow-x: auto;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.workflow-property-output-json code {
+    font-family: inherit;
+}
+
+.workflow-property-implied {
+    font-size: 11px;
+    color: var(--text-secondary, #8b949e);
+    padding: 4px 8px;
+    background: var(--bg-secondary, #161b22);
+    border-radius: 4px;
+    font-style: italic;
+}

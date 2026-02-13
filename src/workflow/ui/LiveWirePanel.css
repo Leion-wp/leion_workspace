@@ -1,0 +1,142 @@
+.livewire-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--workflow-panel-bg, #161b22);
+    min-width: 360px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.livewire-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #f0f6fc;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #30363d;
+}
+
+.livewire-hint {
+    font-size: 10px;
+    color: #8b949e;
+    font-weight: 400;
+    margin-left: auto;
+}
+
+.livewire-empty {
+    font-size: 11px;
+    color: #8b949e;
+    padding: 12px 8px;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.livewire-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.livewire-row {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.2s;
+}
+
+.livewire-row.active {
+    border-color: #3fb950;
+}
+
+.livewire-row-body {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.livewire-endpoint {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.livewire-endpoint select,
+.livewire-endpoint input {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    color: #f0f6fc;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 11px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.livewire-arrow {
+    color: #8b949e;
+    flex-shrink: 0;
+}
+
+.livewire-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.livewire-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: #8b949e;
+    cursor: pointer;
+}
+
+.livewire-toggle input {
+    width: 12px;
+    height: 12px;
+}
+
+.livewire-remove {
+    background: none;
+    border: none;
+    color: #8b949e;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+}
+
+.livewire-remove:hover {
+    color: #f85149;
+}
+
+.livewire-add {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    width: 100%;
+    justify-content: center;
+}
+
+.livewire-add:hover {
+    border-color: #58a6ff;
+    color: #58a6ff;
+}

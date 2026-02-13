@@ -1,0 +1,204 @@
+/* ── FileExplorer Panel ─────────────────────────────────── */
+.file-explorer {
+    width: 220px;
+    min-width: 220px;
+    background: var(--sidebar-bg, #161b22);
+    border-right: 1px solid var(--border-color, #30363d);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.file-explorer-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: var(--text-muted, #8b949e);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 1px solid transparent;
+}
+
+.file-explorer-header:hover {
+    color: var(--text-primary, #e6edf3);
+    background: var(--hover-bg, #1f2937);
+}
+
+.file-explorer-chevron {
+    display: flex;
+    align-items: center;
+    opacity: 0.7;
+}
+
+.file-explorer-title {
+    flex: 1;
+}
+
+.file-explorer-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.file-explorer-root-bar {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    gap: 4px;
+    border-bottom: 1px solid var(--border-color, #30363d);
+}
+
+.file-explorer-root-name {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary, #e6edf3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-explorer-root-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.fs-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 3px;
+    border-radius: 3px;
+    color: var(--text-muted, #8b949e);
+    cursor: pointer;
+    transition: color 0.1s, background 0.1s;
+}
+
+.fs-action-btn:hover {
+    color: var(--text-primary, #e6edf3);
+    background: var(--hover-bg, #1f2937);
+}
+
+.file-explorer-tree {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2px 0;
+}
+
+/* ── Tree Rows ──────────────────────────────────────────── */
+.fs-tree-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+    font-size: 12px;
+    color: var(--text-secondary, #c9d1d9);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    min-height: 22px;
+    transition: background 0.1s;
+}
+
+.fs-tree-row:hover {
+    background: var(--hover-bg, #1f2937);
+    color: var(--text-primary, #e6edf3);
+}
+
+.fs-tree-dir {
+    cursor: pointer;
+}
+
+.fs-tree-file {
+    cursor: default;
+}
+
+.fs-tree-file:hover {
+    cursor: pointer;
+}
+
+.fs-chevron {
+    font-size: 10px;
+    width: 12px;
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted, #8b949e);
+    flex-shrink: 0;
+}
+
+.fs-icon {
+    font-size: 11px;
+    width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.fs-icon-dir {
+    font-size: 12px;
+}
+
+.fs-icon-file {
+    color: var(--text-muted, #8b949e);
+    font-family: monospace;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.fs-icon-workflow {
+    color: #4ade80;
+    font-size: 12px;
+}
+
+.fs-tree-workflow .fs-name {
+    color: #4ade80;
+}
+
+.fs-tree-workflow:hover {
+    background: rgba(74, 222, 128, 0.08);
+}
+
+.fs-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.fs-loading {
+    color: var(--text-muted, #8b949e);
+    font-size: 10px;
+    margin-left: 4px;
+}
+
+.fs-empty {
+    font-size: 11px;
+    color: var(--text-muted, #8b949e);
+    padding: 2px 0;
+    font-style: italic;
+}
+
+.fs-status {
+    font-size: 11px;
+    color: var(--text-muted, #8b949e);
+    padding: 8px 12px;
+    font-style: italic;
+}
+
+/* Scrollbar */
+.file-explorer-tree::-webkit-scrollbar {
+    width: 4px;
+}
+.file-explorer-tree::-webkit-scrollbar-thumb {
+    background: var(--border-color, #30363d);
+    border-radius: 2px;
+}
