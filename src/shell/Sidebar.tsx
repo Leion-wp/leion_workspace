@@ -14,6 +14,7 @@ import {
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react'
 import { cn } from '../lib/utils'
 import { PresetModal } from '../layout/PresetModal'
+import { closePaneWithCleanup } from '../layout/paneLifecycle'
 
 export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false)
@@ -80,21 +81,7 @@ export function Sidebar() {
 
     // Helper functions (same as before)
     const closePane = (idToRemove: string) => {
-        if (paneIds.length <= 1) return
-
-        const removeFromLayout = (node: MosaicNode<string> | null): MosaicNode<string> | null => {
-            if (!node) return null
-            if (typeof node === 'string') return node === idToRemove ? null : node
-
-            const first = removeFromLayout(node.first)
-            const second = removeFromLayout(node.second)
-
-            if (!first) return second as MosaicNode<string>
-            if (!second) return first as MosaicNode<string>
-            return { ...node, first, second }
-        }
-
-        setLayout(removeFromLayout(layout))
+        closePaneWithCleanup(idToRemove)
     }
 
     const duplicatePane = (id: string) => {

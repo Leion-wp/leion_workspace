@@ -12,6 +12,7 @@ import { useBroadcastStore } from '../layout/broadcastStore'
 import { useSettingsStore } from '../store/settings'
 import { useFusionStore } from '../panes/fusionStore'
 import { useTerminalProfileStore } from '../panes/terminalProfileStore'
+import { closePaneWithCleanup, resolvePaneToClose } from '../layout/paneLifecycle'
 import type { PaneConfig } from '../panes/types'
 import type { MosaicNode } from 'react-mosaic-component'
 import 'react-mosaic-component/react-mosaic-component.css'
@@ -90,24 +91,11 @@ function App() {
         }
     }
 
-    // Close active pane (or first pane if none active)
+    // Close active pane (fallback to last visible pane)
     const closePane = () => {
-        if (paneIds.length <= 1) return // Keep at least one pane
-
-        const removePane = (node: MosaicNode<string> | null, idToRemove: string): MosaicNode<string> | null => {
-            if (!node) return null
-            if (typeof node === 'string') return node === idToRemove ? null : node
-
-            const first = removePane(node.first, idToRemove)
-            const second = removePane(node.second, idToRemove)
-
-            if (!first) return second as MosaicNode<string>
-            if (!second) return first as MosaicNode<string>
-            return { ...node, first, second }
-        }
-
-        const paneToRemove = paneIds[paneIds.length - 1] // Remove last pane
-        setLayout(removePane(layout, paneToRemove))
+        const paneToRemove = resolvePaneToClose()
+        if (!paneToRemove) return
+        closePaneWithCleanup(paneToRemove)
     }
 
     // Focus pane by index

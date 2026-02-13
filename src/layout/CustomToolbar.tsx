@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { useLayoutStore } from './store';
 import { useBroadcastStore } from './broadcastStore';
 import { useFusionStore } from '../panes/fusionStore';
+import { closePaneWithCleanup } from './paneLifecycle';
 import { cn } from '../lib/utils';
 
 interface CustomToolbarProps {
@@ -129,7 +130,13 @@ export function CustomToolbar({ title, path, paneId, collapsed, onToggleCollapse
                             variant="ghost"
                             size="icon"
                             className="h-5 w-5 rounded-sm hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={() => mosaicActions.remove(path)}
+                            onClick={() => {
+                                if (paneId) {
+                                    closePaneWithCleanup(paneId);
+                                } else {
+                                    mosaicActions.remove(path);
+                                }
+                            }}
                             title="Close"
                         >
                             <X size={12} />

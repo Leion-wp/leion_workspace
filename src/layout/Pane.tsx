@@ -2,10 +2,11 @@ import { useCallback } from 'react'
 import { useLayoutStore, getAllPaneIds, type PaneId } from './store'
 import { useContextMenu, type MenuItem } from '../components'
 import { TabbedPaneGroup } from './TabbedPaneGroup'
-import { useBroadcastStore } from './broadcastStore'
 import { useFusionStore } from '../panes/fusionStore'
 import { usePaneStateStore } from '../panes/paneStateStore'
 import { useTerminalProfileStore } from '../panes/terminalProfileStore'
+import { useShortcutsStore } from '../hooks/useShortcuts'
+import { closePaneWithCleanup } from './paneLifecycle'
 import {
     NotesPane,
     BrowserPane,
@@ -39,6 +40,7 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
     const dissolveTabGroup = useLayoutStore((state) => state.dissolveTabGroup)
     const layout = useLayoutStore((state) => state.layout)
     const panes = useLayoutStore((state) => state.panes)
+    const setActivePane = useShortcutsStore((state) => state.setActivePane)
     const contextMenu = useContextMenu()
 
     // Check if this id is a tab group
@@ -180,7 +182,7 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
             { label: 'Change to Agent', icon: '🧠', action: () => setPaneType(id, 'agent') },
             { separator: true, label: '', action: () => { } },
             { label: 'Duplicate', icon: '📋', action: () => duplicatePane(id) },
-            { label: 'Close', icon: '✕', action: () => closePane(id), disabled: false },
+            { label: 'Close', icon: '✕', action: () => closePaneWithCleanup(id), disabled: allPaneIds.length <= 1 },
         ]
 
         contextMenu.show(e.clientX, e.clientY, items)
@@ -202,78 +204,6 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
             data: source.data ? { ...source.data } : source.data,
             collapsed: false,
         })
-    }
-
-    const closePane = (paneId: string) => {
-        const removeFromLayout = (node: import('react-mosaic-component').MosaicNode<string> | null, idToRemove: string): import('react-mosaic-component').MosaicNode<string> | null => {
-            if (!node) return null
-            if (typeof node === 'string') return node === idToRemove ? null : node
-
-            const first = removeFromLayout(node.first, idToRemove)
-            const second = removeFromLayout(node.second, idToRemove)
-
-            if (!first) return second as import('react-mosaic-component').MosaicNode<string>
-            if (!second) return first as import('react-mosaic-component').MosaicNode<string>
-            return { ...node, first, second }
-        }
-
-        const replaceNodeId = (
-            node: import('react-mosaic-component').MosaicNode<string> | null,
-            idToReplace: string,
-            replacement: string
-        ): import('react-mosaic-component').MosaicNode<string> | null => {
-            if (!node) return null
-            if (typeof node === 'string') return node === idToReplace ? replacement : node
-            return {
-                ...node,
-                first: replaceNodeId(node.first, idToReplace, replacement)!,
-                second: replaceNodeId(node.second, idToReplace, replacement)!,
-            }
-        }
-
-        // If pane is in a tab group, remove it from the group first.
-        const parentGroup = Object.values(tabGroups).find(g => g.paneIds.includes(paneId))
-        if (parentGroup) {
-            const remaining = parentGroup.paneIds.filter(id => id !== paneId)
-
-            if (remaining.length === 0) {
-                const nextLayout = removeFromLayout(layout, parentGroup.id)
-                setLayout(nextLayout)
-                useLayoutStore.setState((state) => {
-                    const nextGroups = { ...state.tabGroups }
-                    delete nextGroups[parentGroup.id]
-                    return { tabGroups: nextGroups }
-                })
-            } else if (remaining.length === 1) {
-                const nextLayout = replaceNodeId(layout, parentGroup.id, remaining[0])
-                setLayout(nextLayout)
-                useLayoutStore.setState((state) => {
-                    const nextGroups = { ...state.tabGroups }
-                    delete nextGroups[parentGroup.id]
-                    return { tabGroups: nextGroups }
-                })
-            } else {
-                useLayoutStore.setState((state) => ({
-                    tabGroups: {
-                        ...state.tabGroups,
-                        [parentGroup.id]: {
-                            ...parentGroup,
-                            paneIds: remaining,
-                            activeId: parentGroup.activeId === paneId ? remaining[0] : parentGroup.activeId,
-                        },
-                    },
-                }))
-            }
-            useFusionStore.getState().unlinkPane(paneId)
-            useBroadcastStore.getState().removePane(paneId)
-            return
-        }
-
-        const paneIds = getAllPaneIds(layout).flatMap(pid => tabGroups[pid]?.paneIds || [pid])
-        if (paneIds.length <= 1) return // keep at least one pane
-        setLayout(removeFromLayout(layout, paneId))
-        useFusionStore.getState().unlinkPane(paneId)
-        useBroadcastStore.getState().removePane(paneId)
     }
 
     const renderContent = () => {
@@ -321,6 +251,9 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
         <div
             data-pane-id={id}
             style={{ height: '100%', width: '100%' }}
+            tabIndex={-1}
+            onMouseDown={() => setActivePane(id)}
+            onFocus={() => setActivePane(id)}
             onContextMenu={handleContextMenu}
         >
             {renderContent()}
