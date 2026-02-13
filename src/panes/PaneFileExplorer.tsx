@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { ChevronRight, ChevronDown, FolderOpen, RefreshCw } from 'lucide-react';
+import { useEffect } from 'react';
+import { FolderOpen, RefreshCw } from 'lucide-react';
 import { useFsStore } from '../shell/useFsStore';
 import { FileTreeNode } from '../shell/FileTreeNode';
 import { Button } from '../components/ui/button';
-import { cn } from '../lib/utils';
 
 interface PaneFileExplorerProps {
     rootPath: string;

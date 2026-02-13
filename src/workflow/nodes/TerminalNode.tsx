@@ -4,14 +4,13 @@ import type { WorkflowNodeData } from '../types';
 import { BaseNode } from './BaseNode';
 import { OutputBadge } from './OutputBadge';
 
-export default function TerminalNode({ id, data, selected }: NodeProps<WorkflowNodeData>) {
+export default function TerminalNode(props: NodeProps<WorkflowNodeData>) {
+    const { id, data } = props;
     const command = data.terminalCommand ?? '';
 
     return (
         <BaseNode
-            id={id}
-            data={data}
-            selected={selected}
+            {...props}
             icon={<Terminal size={16} />}
             className="w-72"
         >
