@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, Bot, User, Loader2, ChevronDown, AlertTriangle, Check, XCircle } from 'lucide-react'
+import { Send, Bot, User, Loader2, ChevronDown, AlertTriangle, Check, XCircle, RefreshCw, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChatPane } from './ChatPane'
 import { usePaneStateStore } from './paneStateStore'
@@ -22,6 +22,11 @@ export interface ToolApproval {
     input: unknown
 }
 
+interface LocalSkill {
+    name: string
+    path: string
+}
+
 type CodexEvent = {
     event?: string
     method?: string
@@ -33,8 +38,35 @@ type CodexEvent = {
 const BRAIN_OPTIONS: Record<AgentBrain, { label: string; icon: string; description: string }> = {
     claude: { label: 'Claude', icon: '🧠', description: 'Webview (Pro plan)' },
     gemini: { label: 'Gemini', icon: '🔮', description: 'SDK (API key)' },
-    codex: { label: 'Codex', icon: '🤖', description: 'App Server (CLI)' },
+    codex: { label: 'Codex', icon: '🤖', description: 'App Server (Official RPC)' },
 }
+
+const CODEX_OFFICIAL_METHODS = [
+    'initialize', 'thread/start', 'thread/resume', 'thread/fork', 'thread/archive',
+    'thread/name/set', 'thread/unarchive', 'thread/compact/start', 'thread/backgroundTerminals/clean',
+    'thread/rollback', 'thread/list', 'thread/loaded/list', 'thread/read',
+    'skills/list', 'skills/remote/read', 'skills/remote/write', 'app/list', 'skills/config/write',
+    'turn/start', 'turn/steer', 'turn/interrupt',
+    'review/start', 'model/list', 'experimentalFeature/list', 'collaborationMode/list', 'mock/experimentalMethod',
+    'mcpServer/oauth/login', 'config/mcpServer/reload', 'mcpServerStatus/list',
+    'account/login/start', 'account/login/cancel', 'account/logout', 'account/rateLimits/read',
+    'feedback/upload', 'command/exec', 'config/read', 'config/value/write', 'config/batchWrite', 'configRequirements/read',
+    'account/read', 'newConversation', 'getConversationSummary', 'listConversations', 'resumeConversation',
+    'forkConversation', 'archiveConversation', 'sendUserMessage', 'sendUserTurn',
+    'interruptConversation', 'addConversationListener', 'removeConversationListener',
+    'gitDiffToRemote', 'loginApiKey', 'loginChatGpt', 'cancelLoginChatGpt', 'logoutChatGpt',
+    'getAuthStatus', 'getUserSavedConfig', 'setDefaultModel', 'getUserAgent', 'userInfo',
+    'fuzzyFileSearch', 'execOneOffCommand',
+] as const
+
+const CODEX_QUICK_ACTIONS: Array<{ label: string; method: string; params?: Record<string, unknown> }> = [
+    { label: 'Auth Status', method: 'getAuthStatus', params: {} },
+    { label: 'Login ChatGPT', method: 'loginChatGpt', params: {} },
+    { label: 'Models', method: 'model/list', params: {} },
+    { label: 'New Conv', method: 'newConversation', params: {} },
+    { label: 'Conversations', method: 'listConversations', params: {} },
+    { label: 'Skills', method: 'skills/list', params: {} },
+]
 
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash'
 const MAX_PERSISTED_MESSAGES = 120
@@ -121,6 +153,29 @@ function getToolApprovalFromEvent(event: CodexEvent): ToolApproval | null {
     return { id: toolCallId, tool: String(toolName), input }
 }
 
+function extractSessionIdFromUnknown(value: unknown): string | null {
+    if (!value || typeof value !== 'object') return null
+    const v = value as any
+    const candidates = [
+        v.sessionId,
+        v.session_id,
+        v.threadId,
+        v.thread_id,
+        v.conversationId,
+        v.conversation_id,
+        v.result?.sessionId,
+        v.result?.session_id,
+        v.result?.threadId,
+        v.result?.thread_id,
+        v.result?.conversationId,
+        v.result?.conversation_id,
+    ]
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim()) return candidate
+    }
+    return null
+}
+
 interface AgentPaneProps {
     id: string
     data?: Record<string, unknown>
@@ -142,6 +197,21 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
             ? data.geminiModel
             : DEFAULT_GEMINI_MODEL
     )
+    const [codexRpcMethod, setCodexRpcMethod] = useState<string>(
+        typeof data?.codexRpcMethod === 'string' ? data.codexRpcMethod : 'getAuthStatus'
+    )
+    const [codexRpcParams, setCodexRpcParams] = useState<string>(
+        typeof data?.codexRpcParams === 'string' ? data.codexRpcParams : '{}'
+    )
+    const [codexRpcBusy, setCodexRpcBusy] = useState(false)
+    const [codexRpcResult, setCodexRpcResult] = useState<string>(
+        typeof data?.codexRpcResult === 'string' ? data.codexRpcResult : ''
+    )
+    const [localSkills, setLocalSkills] = useState<LocalSkill[]>([])
+    const [skillsLoading, setSkillsLoading] = useState(false)
+    const [selectedSkill, setSelectedSkill] = useState<string | null>(
+        typeof data?.selectedSkill === 'string' && data.selectedSkill.trim() ? data.selectedSkill : null
+    )
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const codexSessionIdRef = useRef<string | null>(codexSessionId)
@@ -151,17 +221,45 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
         codexSessionIdRef.current = codexSessionId
     }, [codexSessionId])
 
+    const loadLocalSkills = useCallback(async () => {
+        if (!window.platform?.fs?.readDir) return
+        setSkillsLoading(true)
+        try {
+            const entries = await window.platform.fs.readDir('skills')
+            const skills = entries
+                .filter((entry) => entry.isDirectory)
+                .map((entry) => ({ name: entry.name, path: entry.path }))
+                .sort((a, b) => a.name.localeCompare(b.name))
+            setLocalSkills(skills)
+        } catch (err: any) {
+            setMessages((prev) => [...prev, {
+                id: `msg-${Date.now()}`,
+                role: 'system',
+                content: `Skills load error: ${err?.message || err}`,
+                timestamp: Date.now(),
+            }])
+        } finally {
+            setSkillsLoading(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        if (brain === 'codex') {
+            void loadLocalSkills()
+        }
+    }, [brain, loadLocalSkills])
+
     // Publish ambient state
     useEffect(() => {
         usePaneStateStore.getState().setPaneState(id, {
             type: 'agent',
             brain,
             lastResponse: messages.filter(m => m.role === 'assistant').pop()?.content || '',
-            isThinking: isLoading,
+            isThinking: isLoading || codexRpcBusy,
             messageCount: messages.length,
         })
         return () => usePaneStateStore.getState().removePaneState(id)
-    }, [id, brain, isLoading, messages])
+    }, [id, brain, isLoading, codexRpcBusy, messages])
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -175,12 +273,16 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
                 brain,
                 geminiModel,
                 codexSessionId,
+                codexRpcMethod,
+                codexRpcParams,
+                codexRpcResult,
+                selectedSkill,
                 messages: messages.slice(-MAX_PERSISTED_MESSAGES),
             })
         }, 180)
 
         return () => window.clearTimeout(timeout)
-    }, [brain, geminiModel, codexSessionId, messages, onUpdate])
+    }, [brain, geminiModel, codexSessionId, codexRpcMethod, codexRpcParams, codexRpcResult, selectedSkill, messages, onUpdate])
 
     // Reset transient state when brain changes
     useEffect(() => {
@@ -188,6 +290,7 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
         if (brain !== 'codex') {
             setPendingApprovals([])
             codexAssistantMessageIdRef.current = null
+            setCodexRpcResult('')
         }
     }, [brain])
 
@@ -221,6 +324,74 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
         })
     }, [])
 
+    const runCodexRpc = useCallback(async (
+        methodOverride?: string,
+        paramsOverride?: Record<string, unknown>
+    ) => {
+        if (!window.platform?.codex?.rpc) {
+            setMessages((prev) => [...prev, {
+                id: `msg-${Date.now()}`,
+                role: 'system',
+                content: 'Codex RPC is not available in this build.',
+                timestamp: Date.now(),
+            }])
+            return null
+        }
+
+        const method = (methodOverride || codexRpcMethod).trim()
+        if (!method) {
+            setMessages((prev) => [...prev, {
+                id: `msg-${Date.now()}`,
+                role: 'system',
+                content: 'Codex RPC method is empty.',
+                timestamp: Date.now(),
+            }])
+            return null
+        }
+
+        let params: Record<string, unknown> = {}
+        if (paramsOverride) {
+            params = paramsOverride
+        } else {
+            try {
+                const parsed = JSON.parse(codexRpcParams || '{}')
+                params = parsed && typeof parsed === 'object' ? parsed : {}
+            } catch (err: any) {
+                setMessages((prev) => [...prev, {
+                    id: `msg-${Date.now()}`,
+                    role: 'system',
+                    content: `Invalid JSON params: ${err?.message || err}`,
+                    timestamp: Date.now(),
+                }])
+                return null
+            }
+        }
+
+        setCodexRpcBusy(true)
+        try {
+            const result = await window.platform.codex.rpc(method, params)
+            const pretty = JSON.stringify(result, null, 2)
+            setCodexRpcResult(pretty)
+            setCodexRpcMethod(method)
+            const inferredSession = extractSessionIdFromUnknown(result)
+            if (inferredSession) {
+                setCodexSessionId(inferredSession)
+                codexSessionIdRef.current = inferredSession
+            }
+            return result
+        } catch (err: any) {
+            setMessages((prev) => [...prev, {
+                id: `msg-${Date.now()}`,
+                role: 'system',
+                content: `Codex RPC error (${method}): ${err?.message || err}`,
+                timestamp: Date.now(),
+            }])
+            return null
+        } finally {
+            setCodexRpcBusy(false)
+        }
+    }, [codexRpcMethod, codexRpcParams])
+
     // Subscribe to codex events
     useEffect(() => {
         if (brain !== 'codex' || !window.platform?.codex) return
@@ -232,6 +403,11 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
             const currentSessionId = codexSessionIdRef.current
             if (currentSessionId && eventSessionId && eventSessionId !== currentSessionId) {
                 return
+            }
+
+            if (eventSessionId && eventSessionId !== codexSessionIdRef.current) {
+                setCodexSessionId(eventSessionId)
+                codexSessionIdRef.current = eventSessionId
             }
 
             const text = getCodexText(event)
@@ -299,21 +475,36 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
         }
     }, [brain, appendCodexText])
 
-    const handleSend = useCallback(async () => {
-        const text = input.trim()
-        if (!text || isLoading) return
+    const composeCodexPrompt = useCallback((text: string) => {
+        if (!selectedSkill) return text
+        return [
+            `Use local skill \"${selectedSkill}\" from path \"skills/${selectedSkill}/SKILL.md\".`,
+            'Follow this skill exactly, then execute the task below:',
+            text,
+        ].join('\n\n')
+    }, [selectedSkill])
 
-        const userMsg: AgentMessage = { id: `msg-${Date.now()}`, role: 'user', content: text, timestamp: Date.now() }
+    const handleSend = useCallback(async () => {
+        const rawText = input.trim()
+        if (!rawText || isLoading) return
+
+        const isCodex = brain === 'codex'
+        const text = isCodex ? composeCodexPrompt(rawText) : rawText
+        const displayedText = isCodex && selectedSkill
+            ? `${rawText}\n\n[skill: ${selectedSkill}]`
+            : rawText
+
+        const userMsg: AgentMessage = { id: `msg-${Date.now()}`, role: 'user', content: displayedText, timestamp: Date.now() }
         setMessages(prev => [...prev, userMsg])
         setInput('')
         setIsLoading(true)
 
         if (brain === 'gemini') {
-            await sendGemini(text, [...messages, userMsg])
+            await sendGemini(rawText, [...messages, userMsg])
         } else if (brain === 'codex') {
             await sendCodex(text)
         }
-    }, [input, isLoading, brain, messages, geminiModel, codexSessionId])
+    }, [input, isLoading, brain, messages, composeCodexPrompt, selectedSkill])
 
     const sendGemini = async (_text: string, allMessages: AgentMessage[]) => {
         if (!window.platform?.gemini) {
@@ -397,16 +588,35 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
             // Initialize session if needed
             let sessionId = codexSessionId
             if (!sessionId) {
-                const result = await window.platform.codex.initialize({
-                    clientInfo: { name: 'Leion', version: '1.0' },
-                })
-                sessionId = result.sessionId
-                setCodexSessionId(sessionId)
-                codexSessionIdRef.current = sessionId
+                try {
+                    const result = await window.platform.codex.initialize({
+                        clientInfo: { name: 'Leion', version: '1.0' },
+                    })
+                    sessionId = result?.sessionId || extractSessionIdFromUnknown(result)
+                    if (sessionId) {
+                        setCodexSessionId(sessionId)
+                        codexSessionIdRef.current = sessionId
+                    }
+                } catch (initErr: any) {
+                    setMessages((prev) => [...prev, {
+                        id: `msg-${Date.now()}`,
+                        role: 'system',
+                        content: `Codex initialize warning: ${initErr?.message || initErr}. Continuing with direct turn call.`,
+                        timestamp: Date.now(),
+                    }])
+                }
             }
 
-            // Create turn
-            await window.platform.codex.turn({ sessionId, message: text })
+            // Create turn (adaptive backend handles official method variants)
+            const turnResult = await window.platform.codex.turn({ sessionId, message: text })
+            const inferredSession = extractSessionIdFromUnknown(turnResult)
+            if (inferredSession && inferredSession !== codexSessionIdRef.current) {
+                setCodexSessionId(inferredSession)
+                codexSessionIdRef.current = inferredSession
+            }
+            if (turnResult?.usedMethod) {
+                setCodexRpcResult(JSON.stringify(turnResult, null, 2))
+            }
             // Response comes via codex events subscribed in useEffect
         } catch (err: any) {
             setMessages((prev) => prev.map((m) => m.isStreaming ? { ...m, isStreaming: false } : m))
@@ -485,6 +695,112 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
                     Clear
                 </Button>
             </div>
+
+            {brain === 'codex' && (
+                <div className="border-b border-border/40 p-2 bg-card/20 space-y-2 shrink-0">
+                    <div className="flex flex-wrap gap-1">
+                        {CODEX_QUICK_ACTIONS.map((action) => (
+                            <Button
+                                key={action.method}
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-[10px]"
+                                onClick={() => void runCodexRpc(action.method, action.params || {})}
+                                disabled={codexRpcBusy}
+                            >
+                                {action.label}
+                            </Button>
+                        ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                        <input
+                            className="flex-1 h-7 rounded border border-border/50 bg-background px-2 text-[11px] outline-none focus:border-primary/50"
+                            value={codexRpcMethod}
+                            onChange={(e) => setCodexRpcMethod(e.target.value)}
+                            placeholder="Codex RPC method"
+                        />
+                        <Button
+                            size="sm"
+                            className="h-7 px-2 text-[10px]"
+                            onClick={() => void runCodexRpc()}
+                            disabled={codexRpcBusy || !codexRpcMethod.trim()}
+                        >
+                            {codexRpcBusy ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} className="mr-1" />} Run
+                        </Button>
+                    </div>
+
+                    <textarea
+                        className="w-full min-h-[54px] max-h-24 rounded border border-border/50 bg-background px-2 py-1 text-[10px] font-mono outline-none focus:border-primary/50 resize-y"
+                        value={codexRpcParams}
+                        onChange={(e) => setCodexRpcParams(e.target.value)}
+                        placeholder='{"key":"value"}'
+                    />
+
+                    <div className="max-h-24 overflow-y-auto rounded border border-border/30 p-1 flex flex-wrap gap-1">
+                        {CODEX_OFFICIAL_METHODS.map((method) => (
+                            <button
+                                key={method}
+                                className={cn(
+                                    'px-2 py-1 rounded text-[10px] border border-border/40 hover:bg-accent/40 transition-colors',
+                                    method === codexRpcMethod && 'bg-accent/50 border-primary/40'
+                                )}
+                                onClick={() => setCodexRpcMethod(method)}
+                                title={method}
+                            >
+                                {method}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-muted-foreground">Local skills (`skills/*`)</span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-[10px]"
+                            onClick={() => void loadLocalSkills()}
+                            disabled={skillsLoading}
+                        >
+                            {skillsLoading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} className="mr-1" />} Refresh
+                        </Button>
+                    </div>
+
+                    <div className="max-h-20 overflow-y-auto rounded border border-border/30 p-1 flex flex-wrap gap-1">
+                        {localSkills.length === 0 && (
+                            <span className="text-[10px] text-muted-foreground px-1">No local skills found.</span>
+                        )}
+                        {localSkills.map((skill) => (
+                            <button
+                                key={skill.path}
+                                className={cn(
+                                    'px-2 py-1 rounded text-[10px] border border-border/40 hover:bg-accent/40 transition-colors',
+                                    selectedSkill === skill.name && 'bg-accent/50 border-primary/40'
+                                )}
+                                onClick={() => {
+                                    setSelectedSkill(skill.name)
+                                    setInput((prev) => prev || `Run task using skill \"${skill.name}\".`)
+                                }}
+                                title={skill.path}
+                            >
+                                {skill.name}
+                            </button>
+                        ))}
+                    </div>
+
+                    {selectedSkill && (
+                        <div className="text-[10px] text-muted-foreground">
+                            Skill actif: <span className="text-foreground">{selectedSkill}</span>
+                        </div>
+                    )}
+
+                    {codexRpcResult && (
+                        <pre className="max-h-24 overflow-auto rounded border border-border/30 bg-background px-2 py-1 text-[10px] font-mono text-muted-foreground whitespace-pre-wrap">
+                            {codexRpcResult}
+                        </pre>
+                    )}
+                </div>
+            )}
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -570,8 +886,9 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
                         {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                     </Button>
                 </div>
-                <div className="text-[10px] text-muted-foreground/40 mt-1 text-right">
-                    Ctrl+Enter to send
+                <div className="text-[10px] text-muted-foreground/40 mt-1 flex items-center justify-between">
+                    <span>Ctrl+Enter to send</span>
+                    {brain === 'codex' && selectedSkill && <span>Skill: {selectedSkill}</span>}
                 </div>
             </div>
         </div>

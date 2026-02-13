@@ -1073,13 +1073,82 @@ function sendCodexRPC(method, params) {
     });
 }
 
+function compactObject(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+    const out = {};
+    for (const [key, value] of Object.entries(input)) {
+        if (value !== undefined) out[key] = value;
+    }
+    return out;
+}
+
+function extractCodexSessionId(payload) {
+    const candidates = [
+        payload?.sessionId,
+        payload?.session_id,
+        payload?.threadId,
+        payload?.thread_id,
+        payload?.conversationId,
+        payload?.conversation_id,
+        payload?.result?.sessionId,
+        payload?.result?.session_id,
+        payload?.result?.threadId,
+        payload?.result?.thread_id,
+        payload?.result?.conversationId,
+        payload?.result?.conversation_id,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim()) return candidate;
+    }
+    return null;
+}
+
+async function sendCodexTurnAdaptive({ sessionId, message }) {
+    const messageText = String(message || '').trim();
+    if (!messageText) throw new Error('Missing message');
+
+    const attempts = [
+        { method: 'turn/start', params: compactObject({ sessionId, message: messageText }) },
+        { method: 'turn/start', params: compactObject({ threadId: sessionId, message: messageText }) },
+        { method: 'turn/start', params: compactObject({ conversationId: sessionId, message: messageText }) },
+        { method: 'sendUserTurn', params: compactObject({ sessionId, message: messageText }) },
+        { method: 'sendUserTurn', params: compactObject({ conversationId: sessionId, message: messageText }) },
+        { method: 'sendUserTurn', params: compactObject({ threadId: sessionId, message: messageText }) },
+        { method: 'sendUserMessage', params: compactObject({ sessionId, message: messageText }) },
+        { method: 'sendUserMessage', params: compactObject({ conversationId: sessionId, message: messageText }) },
+        { method: 'sendUserMessage', params: compactObject({ threadId: sessionId, message: messageText }) },
+        { method: 'sendUserMessage', params: compactObject({ message: messageText }) },
+        { method: 'command/exec', params: compactObject({ command: messageText }) },
+    ];
+
+    const errors = [];
+    for (const attempt of attempts) {
+        try {
+            const result = await sendCodexRPC(attempt.method, attempt.params);
+            return {
+                ok: true,
+                usedMethod: attempt.method,
+                result,
+                sessionId: extractCodexSessionId(result) || sessionId || null,
+            };
+        } catch (err) {
+            errors.push(`${attempt.method}: ${err.message}`);
+        }
+    }
+
+    throw new Error(errors.join(' | '));
+}
+
 ipcMain.handle('codex:initialize', async (_, options) => {
     try {
         await startCodexProcess();
         const result = await sendCodexRPC('initialize', {
             clientInfo: options.clientInfo || { name: 'Leion', version: '1.0' },
         });
-        return result || { sessionId: `codex-${Date.now()}` };
+        return {
+            ...(result || {}),
+            sessionId: extractCodexSessionId(result) || null,
+        };
     } catch (err) {
         throw new Error(`Codex init error: ${err.message}`);
     }
@@ -1087,9 +1156,10 @@ ipcMain.handle('codex:initialize', async (_, options) => {
 
 ipcMain.handle('codex:turn', async (_, options) => {
     try {
-        await sendCodexRPC('turn.create', {
-            sessionId: options.sessionId,
-            message: options.message,
+        await startCodexProcess();
+        return await sendCodexTurnAdaptive({
+            sessionId: options?.sessionId || null,
+            message: options?.message || '',
         });
     } catch (err) {
         throw new Error(`Codex turn error: ${err.message}`);
@@ -1110,6 +1180,20 @@ ipcMain.handle('codex:stop', async () => {
         codexProcess = null;
     }
     return { success: true };
+});
+
+ipcMain.handle('codex:rpc', async (_, payload) => {
+    const method = String(payload?.method || '').trim();
+    if (!method) {
+        throw new Error('Codex rpc error: missing method');
+    }
+
+    try {
+        await startCodexProcess();
+        return await sendCodexRPC(method, payload?.params ?? {});
+    } catch (err) {
+        throw new Error(`Codex rpc error (${method}): ${err.message}`);
+    }
 });
 
 // ─── Popout Window Management ─────────────────────────────────────────────────
