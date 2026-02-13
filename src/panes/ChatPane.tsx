@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { chatCommandService } from '../services/chatCommandService'
 import { usePaneStateStore } from './paneStateStore'
 import { usePaneControlBus } from './paneControlBus'
+import { useBroadcastStore } from '../layout/broadcastStore'
 import './ChatPane.css'
 
 type AIProvider = 'chatgpt' | 'gemini' | 'claude' | 'custom'
@@ -66,6 +67,7 @@ export function ChatPane({ id, data, onUpdate }: ChatPaneProps) {
         const unregister = usePaneControlBus.getState().register(id, async (cmd) => {
             if (cmd.type === 'chat:inject' && chatCommandService.isRegistered(id)) {
                 const text = cmd.payload.text as string
+                const fromBroadcast = Boolean((cmd.payload as Record<string, unknown>).__broadcast)
                 // Use the same injection pattern as chatExecutor
                 const script = `
                     (function() {
@@ -79,7 +81,11 @@ export function ChatPane({ id, data, onUpdate }: ChatPaneProps) {
                         return 'INJECTED';
                     })()
                 `
-                return chatCommandService.execute(id, script)
+                const result = await chatCommandService.execute(id, script)
+                if (!fromBroadcast) {
+                    useBroadcastStore.getState().broadcast(id, text)
+                }
+                return result
             }
             return { handled: false }
         })

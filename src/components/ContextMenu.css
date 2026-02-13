@@ -2,6 +2,10 @@
     position: fixed;
     z-index: 10000;
     min-width: 180px;
+    max-width: min(360px, calc(100vw - 16px));
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
+    overflow-x: hidden;
     background: #252526;
     border: 1px solid #3c3c3c;
     border-radius: 6px;
@@ -57,4 +61,22 @@
     height: 1px;
     background: #3c3c3c;
     margin: 4px 8px;
+}
+
+.context-menu::-webkit-scrollbar {
+    width: 10px;
+}
+
+.context-menu::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.context-menu::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border-radius: 999px;
+    border: 2px solid #252526;
+}
+
+.context-menu::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a;
 }

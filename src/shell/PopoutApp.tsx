@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ContextMenuProvider } from '../components'
 import { Pane } from '../layout/Pane'
+import { useLayoutStore } from '../layout/store'
 import type { PaneConfig } from '../panes/types'
 
 /**
@@ -10,16 +11,30 @@ import type { PaneConfig } from '../panes/types'
 export function PopoutApp() {
     const params = new URLSearchParams(window.location.search)
     const paneId = params.get('popout') || ''
-    const [paneConfig, setPaneConfig] = useState<PaneConfig | null>(null)
     const [title, setTitle] = useState(paneId)
+    const syncFromMainRef = useRef(false)
+    const hasInitialSyncRef = useRef(false)
+    const paneConfig = useLayoutStore((s) => (paneId ? s.panes[paneId] : undefined))
 
     useEffect(() => {
         if (!paneId || !window.platform?.popout) return
 
+        // Popout window renders only this pane (without auto-creating empty pane config).
+        useLayoutStore.setState({ layout: paneId })
+
         // Listen for state updates from main window
         const cleanup = window.platform.popout.onStateUpdate((state: any) => {
             if (state.paneConfig) {
-                setPaneConfig(state.paneConfig)
+                const incoming = state.paneConfig as PaneConfig
+                hasInitialSyncRef.current = true
+                syncFromMainRef.current = true
+                useLayoutStore.setState((prev) => ({
+                    layout: paneId,
+                    panes: { ...prev.panes, [paneId]: incoming },
+                }))
+                setTimeout(() => {
+                    syncFromMainRef.current = false
+                }, 0)
             }
             if (state.title) {
                 setTitle(state.title)
@@ -32,6 +47,18 @@ export function PopoutApp() {
 
         return cleanup
     }, [paneId])
+
+    // Relay local pane edits back to main renderer.
+    useEffect(() => {
+        if (!paneId || !paneConfig || !window.platform?.popout) return
+        if (!hasInitialSyncRef.current) return
+        if (syncFromMainRef.current) return
+        window.platform.popout.sendAction({
+            type: 'pane:update',
+            paneId,
+            paneConfig,
+        })
+    }, [paneId, paneConfig])
 
     if (!paneId) {
         return (
@@ -49,7 +76,7 @@ export function PopoutApp() {
                     <span className="text-xs font-medium text-muted-foreground">{title}</span>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                    <Pane id={paneId} paneConfig={paneConfig ?? undefined} />
+                    <Pane id={paneId} />
                 </div>
             </div>
         </ContextMenuProvider>

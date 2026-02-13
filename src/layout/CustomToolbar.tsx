@@ -18,6 +18,7 @@ export function CustomToolbar({ title, path, paneId, collapsed, onToggleCollapse
     const pane = useLayoutStore(s => paneId ? s.panes[paneId] : null);
     const isBroadcasting = useBroadcastStore(s => paneId ? s.isBroadcasting(paneId) : false);
     const toggleBroadcast = useBroadcastStore(s => s.toggleBroadcast);
+    const isPopoutWindow = new URLSearchParams(window.location.search).has('popout');
 
     const fusionColor = useFusionStore(s => paneId ? s.getFusionColor(paneId) : null);
     const isBroadcastable = pane?.type === 'chat' || pane?.type === 'terminal';
@@ -84,7 +85,7 @@ export function CustomToolbar({ title, path, paneId, collapsed, onToggleCollapse
                         )}
 
                         {/* Pop Out */}
-                        {!collapsed && paneId && (
+                        {!collapsed && paneId && !isPopoutWindow && (
                             <Button
                                 variant="ghost"
                                 size="icon"

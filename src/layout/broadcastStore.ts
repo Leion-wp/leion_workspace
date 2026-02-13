@@ -85,9 +85,9 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
 
             // Determine command type based on channel
             if (groupId.includes('terminal')) {
-                bus.dispatch(paneId, { type: 'terminal:input', payload: { data: content } })
+                bus.dispatch(paneId, { type: 'terminal:input', payload: { data: content, __broadcast: true } })
             } else if (groupId.includes('chat')) {
-                bus.dispatch(paneId, { type: 'chat:inject', payload: { text: content } })
+                bus.dispatch(paneId, { type: 'chat:inject', payload: { text: content, __broadcast: true } })
             }
         }
     },

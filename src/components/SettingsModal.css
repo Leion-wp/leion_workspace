@@ -199,6 +199,45 @@
     cursor: pointer;
 }
 
+.settings-field input,
+.settings-field textarea {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.settings-field input:focus,
+.settings-field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.settings-row {
+    display: flex;
+    gap: 8px;
+}
+
+.settings-row .settings-btn {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+}
+
+.settings-textarea {
+    min-height: 96px;
+    resize: vertical;
+    font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.settings-error {
+    margin-top: 8px;
+    color: #ff7b7b;
+    font-size: 12px;
+}
+
 .theme-picker {
     display: flex;
     gap: 12px;

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSettingsStore } from '../store/settings'
 import { useLayoutStore } from '../layout/store'
+import { useTerminalProfileStore } from '../panes/terminalProfileStore'
 import './SettingsModal.css'
 
 interface SettingsModalProps {
@@ -9,7 +10,10 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'data'>('general')
+    const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'terminal' | 'data'>('general')
+    const [envText, setEnvText] = useState('')
+    const [commandsText, setCommandsText] = useState('')
+    const [terminalError, setTerminalError] = useState('')
 
     const theme = useSettingsStore(s => s.theme)
     const setTheme = useSettingsStore(s => s.setTheme)
@@ -19,10 +23,26 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const setShowBookmarksBar = useSettingsStore(s => s.setShowBookmarksBar)
     const defaultSearchEngine = useSettingsStore(s => s.defaultSearchEngine)
     const setDefaultSearchEngine = useSettingsStore(s => s.setDefaultSearchEngine)
+    const terminalSharedCwd = useTerminalProfileStore(s => s.sharedCwd)
+    const terminalSharedEnv = useTerminalProfileStore(s => s.sharedEnv)
+    const bootstrapCommands = useTerminalProfileStore(s => s.bootstrapCommands)
+    const syncCwdAcrossTerminals = useTerminalProfileStore(s => s.syncCwdAcrossTerminals)
+    const setSharedCwd = useTerminalProfileStore(s => s.setSharedCwd)
+    const setSyncCwdAcrossTerminals = useTerminalProfileStore(s => s.setSyncCwdAcrossTerminals)
+    const envAsText = useTerminalProfileStore(s => s.envAsText)
+    const applyEnvText = useTerminalProfileStore(s => s.applyEnvText)
+    const applyBootstrapText = useTerminalProfileStore(s => s.applyBootstrapText)
 
     const spaces = useLayoutStore(s => s.spaces)
     const layout = useLayoutStore(s => s.layout)
     const panes = useLayoutStore(s => s.panes)
+
+    useEffect(() => {
+        if (!isOpen) return
+        setEnvText(envAsText())
+        setCommandsText(bootstrapCommands.join('\n'))
+        setTerminalError('')
+    }, [isOpen, terminalSharedEnv, bootstrapCommands, envAsText])
 
     if (!isOpen) return null
 
@@ -109,6 +129,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             🎨 Appearance
                         </button>
                         <button
+                            className={`settings-tab ${activeTab === 'terminal' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('terminal')}
+                        >
+                            ⬛ Terminal
+                        </button>
+                        <button
                             className={`settings-tab ${activeTab === 'data' ? 'active' : ''}`}
                             onClick={() => setActiveTab('data')}
                         >
@@ -175,6 +201,72 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         <span>Light</span>
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'terminal' && (
+                            <div className="settings-section">
+                                <h3>Shared Terminal Profile</h3>
+
+                                <label className="settings-toggle">
+                                    <span>Sync CWD Across All Terminals</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={syncCwdAcrossTerminals}
+                                        onChange={e => setSyncCwdAcrossTerminals(e.target.checked)}
+                                    />
+                                    <span className="toggle-slider" />
+                                </label>
+
+                                <div className="settings-field">
+                                    <label>Shared CWD</label>
+                                    <div className="settings-row">
+                                        <input
+                                            type="text"
+                                            value={terminalSharedCwd}
+                                            onChange={e => setSharedCwd(e.target.value)}
+                                            placeholder="D:\\project"
+                                        />
+                                        <button
+                                            className="settings-btn"
+                                            onClick={async () => {
+                                                const selected = await window.platform?.fs?.openFolderDialog?.()
+                                                if (selected) setSharedCwd(selected)
+                                            }}
+                                        >
+                                            Browse
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="settings-field">
+                                    <label>Shared ENV (KEY=VALUE, one per line)</label>
+                                    <textarea
+                                        className="settings-textarea"
+                                        value={envText}
+                                        onChange={e => setEnvText(e.target.value)}
+                                        onBlur={() => {
+                                            const result = applyEnvText(envText)
+                                            setTerminalError(result.ok ? '' : (result.error || 'Invalid ENV format'))
+                                        }}
+                                        placeholder={'NODE_ENV=development\nAPI_BASE_URL=http://localhost:3000'}
+                                    />
+                                </div>
+
+                                <div className="settings-field">
+                                    <label>Startup Commands (one per line)</label>
+                                    <textarea
+                                        className="settings-textarea"
+                                        value={commandsText}
+                                        onChange={e => setCommandsText(e.target.value)}
+                                        onBlur={() => applyBootstrapText(commandsText)}
+                                        placeholder={'chcp 65001\nnpm run dev'}
+                                    />
+                                </div>
+
+                                {terminalError && (
+                                    <div className="settings-error">{terminalError}</div>
+                                )}
                             </div>
                         )}
 
