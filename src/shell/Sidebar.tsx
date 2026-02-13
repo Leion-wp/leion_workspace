@@ -15,6 +15,7 @@ import EmojiPicker, { EmojiClickData } from 'emoji-picker-react'
 import { cn } from '../lib/utils'
 import { PresetModal } from '../layout/PresetModal'
 import { closePaneWithCleanup } from '../layout/paneLifecycle'
+import { useShortcutsStore } from '../hooks/useShortcuts'
 
 export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false)
@@ -76,6 +77,7 @@ export function Sidebar() {
     const deleteSpace = useLayoutStore((state) => state.deleteSpace)
     const updateSpace = useLayoutStore((state) => state.updateSpace)
     const switchSpace = useLayoutStore((state) => state.switchSpace)
+    const setActivePane = useShortcutsStore((state) => state.setActivePane)
 
     const paneIds = getAllPaneIds(layout)
 
@@ -159,6 +161,7 @@ export function Sidebar() {
             ? { direction: 'row', first: layout, second: newId, splitPercentage: 75 }
             : newId
         setLayout(newLayout)
+        setActivePane(newId)
         if (type !== 'empty') {
             setTimeout(() => setPaneType(newId, type), 100)
         }
@@ -540,7 +543,10 @@ export function Sidebar() {
                                                 isBrowser && tabs.length > 0 && "font-medium"
                                             )}
                                             onContextMenu={(e) => handlePaneContextMenu(e, id)}
-                                            onClick={isBrowser && tabs.length > 0 ? () => togglePaneExpanded(id) : undefined}
+                                            onClick={() => {
+                                                setActivePane(id)
+                                                if (isBrowser && tabs.length > 0) togglePaneExpanded(id)
+                                            }}
                                             draggable
                                             onDragStart={(e) => handleDragStart(e, id)}
                                             onDragOver={(e) => handleDragOver(e, id)}
@@ -690,7 +696,10 @@ export function Sidebar() {
                                 <div
                                     key={id}
                                     className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-accent text-foreground/70 cursor-pointer"
-                                    onClick={() => togglePaneExpanded(id)}
+                                    onClick={() => {
+                                        setActivePane(id)
+                                        togglePaneExpanded(id)
+                                    }}
                                     title={pane.title || id}
                                 >
                                     <Icon size={16} />

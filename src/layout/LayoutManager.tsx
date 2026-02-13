@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
 import { Mosaic, MosaicWindow, type MosaicBranch, type MosaicNode } from 'react-mosaic-component'
 import { useLayoutStore, PaneId, type Space } from './store'
 import type { PaneConfig } from '../panes/types'
@@ -16,7 +16,6 @@ interface SpaceMosaicProps {
 
 function SpaceMosaic({ space, isActive, activeLayout, activePanes }: SpaceMosaicProps) {
     const setLayout = useLayoutStore((s) => s.setLayout)
-    const updatePane = useLayoutStore((s) => s.updatePane)
     const togglePaneCollapse = useLayoutStore((s) => s.togglePaneCollapse)
 
     const layout = isActive ? activeLayout : space.layout
@@ -59,7 +58,7 @@ function SpaceMosaic({ space, isActive, activeLayout, activePanes }: SpaceMosaic
                 <Pane id={id} paneConfig={isActive ? undefined : pane} />
             </MosaicWindow>
         )
-    }, [panes, isActive, layout, updatePane])
+    }, [panes, isActive, layout, togglePaneCollapse])
 
     return (
         <div style={{ position: 'absolute', inset: 0, display: isActive ? 'block' : 'none' }}>
@@ -89,21 +88,6 @@ export function LayoutManager() {
     const activeSpaceId = useLayoutStore((state) => state.activeSpaceId)
     const layout = useLayoutStore((state) => state.layout)
     const panes = useLayoutStore((state) => state.panes)
-    const loadLayout = useLayoutStore((state) => state.loadLayout)
-    const saveLayout = useLayoutStore((state) => state.saveLayout)
-
-    // Load saved layout on mount
-    useEffect(() => {
-        void loadLayout()
-    }, [loadLayout])
-
-    // Auto-save layout on change (debounced)
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            saveLayout()
-        }, 1000)
-        return () => clearTimeout(timeout)
-    }, [layout, panes, saveLayout])
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
