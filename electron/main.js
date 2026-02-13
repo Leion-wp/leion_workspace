@@ -996,6 +996,9 @@ let codexProcess = null;
 let codexRequestId = 0;
 const codexPendingRequests = new Map(); // id -> { resolve, reject }
 let codexBuffer = '';
+let codexInitialized = false;
+let codexInitInFlight = null;
+let codexDefaultThreadId = null;
 
 function startCodexProcess() {
     if (codexProcess) return Promise.resolve();
@@ -1044,6 +1047,9 @@ function startCodexProcess() {
             console.error('[Codex] Process error:', err.message);
             mainWindow?.webContents.send('codex:exit', -1);
             codexProcess = null;
+            codexInitialized = false;
+            codexInitInFlight = null;
+            codexDefaultThreadId = null;
             reject(err);
         });
 
@@ -1051,6 +1057,9 @@ function startCodexProcess() {
             console.log('[Codex] Process exited with code:', code);
             mainWindow?.webContents.send('codex:exit', code || 0);
             codexProcess = null;
+            codexInitialized = false;
+            codexInitInFlight = null;
+            codexDefaultThreadId = null;
             // Reject all pending requests
             for (const [, { reject: rej }] of codexPendingRequests) {
                 rej(new Error('Codex process exited'));
@@ -1066,11 +1075,30 @@ function startCodexProcess() {
 function sendCodexRPC(method, params) {
     if (!codexProcess) return Promise.reject(new Error('Codex process not running'));
     const id = ++codexRequestId;
-    const msg = JSON.stringify({ jsonrpc: '2.0', method, params, id }) + '\n';
+    // Codex app-server protocol omits the `jsonrpc` header field.
+    const msg = JSON.stringify({ id, method, params }) + '\n';
     return new Promise((resolve, reject) => {
         codexPendingRequests.set(id, { resolve, reject });
         codexProcess.stdin.write(msg);
     });
+}
+
+function sendCodexNotification(method, params) {
+    if (!codexProcess) return Promise.reject(new Error('Codex process not running'));
+    const msg = JSON.stringify({ method, params }) + '\n';
+    return new Promise((resolve, reject) => {
+        codexProcess.stdin.write(msg, (err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
+}
+
+function getDefaultCodexClientInfo() {
+    return {
+        name: 'Leion',
+        version: typeof app?.getVersion === 'function' ? app.getVersion() : '1.0.0',
+    };
 }
 
 function compactObject(input) {
@@ -1103,47 +1131,78 @@ function extractCodexSessionId(payload) {
     return null;
 }
 
-async function sendCodexTurnAdaptive({ sessionId, message }) {
+function extractCodexThreadId(payload) {
+    const candidates = [
+        payload?.threadId,
+        payload?.thread_id,
+        payload?.id,
+        payload?.thread?.id,
+        payload?.result?.threadId,
+        payload?.result?.thread_id,
+        payload?.result?.id,
+        payload?.result?.thread?.id,
+        payload?.data?.threadId,
+        payload?.data?.thread_id,
+        payload?.data?.id,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim()) return candidate;
+    }
+    return null;
+}
+
+async function ensureCodexInitialized(options = {}) {
+    await startCodexProcess();
+    if (codexInitialized) return null;
+    if (codexInitInFlight) return codexInitInFlight;
+
+    codexInitInFlight = (async () => {
+        const result = await sendCodexRPC('initialize', {
+            clientInfo: options?.clientInfo || getDefaultCodexClientInfo(),
+        });
+        await sendCodexNotification('initialized', {});
+        codexInitialized = true;
+        return result;
+    })();
+
+    try {
+        return await codexInitInFlight;
+    } finally {
+        codexInitInFlight = null;
+    }
+}
+
+async function sendCodexTurnStrict({ sessionId, message }) {
     const messageText = String(message || '').trim();
     if (!messageText) throw new Error('Missing message');
 
-    const attempts = [
-        { method: 'turn/start', params: compactObject({ sessionId, message: messageText }) },
-        { method: 'turn/start', params: compactObject({ threadId: sessionId, message: messageText }) },
-        { method: 'turn/start', params: compactObject({ conversationId: sessionId, message: messageText }) },
-        { method: 'sendUserTurn', params: compactObject({ sessionId, message: messageText }) },
-        { method: 'sendUserTurn', params: compactObject({ conversationId: sessionId, message: messageText }) },
-        { method: 'sendUserTurn', params: compactObject({ threadId: sessionId, message: messageText }) },
-        { method: 'sendUserMessage', params: compactObject({ sessionId, message: messageText }) },
-        { method: 'sendUserMessage', params: compactObject({ conversationId: sessionId, message: messageText }) },
-        { method: 'sendUserMessage', params: compactObject({ threadId: sessionId, message: messageText }) },
-        { method: 'sendUserMessage', params: compactObject({ message: messageText }) },
-        { method: 'command/exec', params: compactObject({ command: messageText }) },
-    ];
-
-    const errors = [];
-    for (const attempt of attempts) {
-        try {
-            const result = await sendCodexRPC(attempt.method, attempt.params);
-            return {
-                ok: true,
-                usedMethod: attempt.method,
-                result,
-                sessionId: extractCodexSessionId(result) || sessionId || null,
-            };
-        } catch (err) {
-            errors.push(`${attempt.method}: ${err.message}`);
+    let threadId = String(sessionId || '').trim() || codexDefaultThreadId;
+    if (!threadId) {
+        const threadResult = await sendCodexRPC('thread/start', {});
+        threadId = extractCodexThreadId(threadResult);
+        if (!threadId) {
+            throw new Error('thread/start succeeded but no threadId was returned');
         }
+        codexDefaultThreadId = threadId;
     }
 
-    throw new Error(errors.join(' | '));
+    const result = await sendCodexRPC('turn/start', {
+        threadId,
+        input: [{ type: 'text', text: messageText }],
+    });
+    return {
+        ok: true,
+        usedMethod: 'turn/start',
+        result,
+        sessionId: threadId,
+        threadId,
+    };
 }
 
 ipcMain.handle('codex:initialize', async (_, options) => {
     try {
-        await startCodexProcess();
-        const result = await sendCodexRPC('initialize', {
-            clientInfo: options.clientInfo || { name: 'Leion', version: '1.0' },
+        const result = await ensureCodexInitialized({
+            clientInfo: options?.clientInfo || getDefaultCodexClientInfo(),
         });
         return {
             ...(result || {}),
@@ -1156,8 +1215,8 @@ ipcMain.handle('codex:initialize', async (_, options) => {
 
 ipcMain.handle('codex:turn', async (_, options) => {
     try {
-        await startCodexProcess();
-        return await sendCodexTurnAdaptive({
+        await ensureCodexInitialized();
+        return await sendCodexTurnStrict({
             sessionId: options?.sessionId || null,
             message: options?.message || '',
         });
@@ -1168,6 +1227,7 @@ ipcMain.handle('codex:turn', async (_, options) => {
 
 ipcMain.handle('codex:approve', async (_, sessionId, toolCallId, decision) => {
     try {
+        await ensureCodexInitialized();
         await sendCodexRPC('tool.approve', { sessionId, toolCallId, decision });
     } catch (err) {
         throw new Error(`Codex approve error: ${err.message}`);
@@ -1179,6 +1239,9 @@ ipcMain.handle('codex:stop', async () => {
         codexProcess.kill();
         codexProcess = null;
     }
+    codexInitialized = false;
+    codexInitInFlight = null;
+    codexDefaultThreadId = null;
     return { success: true };
 });
 
@@ -1189,8 +1252,25 @@ ipcMain.handle('codex:rpc', async (_, payload) => {
     }
 
     try {
-        await startCodexProcess();
-        return await sendCodexRPC(method, payload?.params ?? {});
+        const params = (payload?.params && typeof payload.params === 'object') ? payload.params : {};
+
+        if (method === 'initialize') {
+            const result = await ensureCodexInitialized({
+                clientInfo: params?.clientInfo || getDefaultCodexClientInfo(),
+            });
+            return {
+                ...(result || {}),
+                sessionId: extractCodexSessionId(result) || null,
+            };
+        }
+
+        await ensureCodexInitialized();
+        const result = await sendCodexRPC(method, params);
+        if (method === 'thread/start') {
+            const threadId = extractCodexThreadId(result);
+            if (threadId) codexDefaultThreadId = threadId;
+        }
+        return result;
     } catch (err) {
         throw new Error(`Codex rpc error (${method}): ${err.message}`);
     }

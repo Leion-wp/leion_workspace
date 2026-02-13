@@ -54,17 +54,16 @@ const CODEX_OFFICIAL_METHODS = [
     'account/read', 'newConversation', 'getConversationSummary', 'listConversations', 'resumeConversation',
     'forkConversation', 'archiveConversation', 'sendUserMessage', 'sendUserTurn',
     'interruptConversation', 'addConversationListener', 'removeConversationListener',
-    'gitDiffToRemote', 'loginApiKey', 'loginChatGpt', 'cancelLoginChatGpt', 'logoutChatGpt',
-    'getAuthStatus', 'getUserSavedConfig', 'setDefaultModel', 'getUserAgent', 'userInfo',
+    'gitDiffToRemote',
     'fuzzyFileSearch', 'execOneOffCommand',
 ] as const
 
 const CODEX_QUICK_ACTIONS: Array<{ label: string; method: string; params?: Record<string, unknown> }> = [
-    { label: 'Auth Status', method: 'getAuthStatus', params: {} },
-    { label: 'Login ChatGPT', method: 'loginChatGpt', params: {} },
+    { label: 'Account', method: 'account/read', params: {} },
+    { label: 'Login', method: 'account/login/start', params: {} },
     { label: 'Models', method: 'model/list', params: {} },
-    { label: 'New Conv', method: 'newConversation', params: {} },
-    { label: 'Conversations', method: 'listConversations', params: {} },
+    { label: 'Threads', method: 'thread/list', params: {} },
+    { label: 'New Thread', method: 'thread/start', params: {} },
     { label: 'Skills', method: 'skills/list', params: {} },
 ]
 
@@ -198,7 +197,7 @@ export function AgentPane({ id, data, onUpdate }: AgentPaneProps) {
             : DEFAULT_GEMINI_MODEL
     )
     const [codexRpcMethod, setCodexRpcMethod] = useState<string>(
-        typeof data?.codexRpcMethod === 'string' ? data.codexRpcMethod : 'getAuthStatus'
+        typeof data?.codexRpcMethod === 'string' ? data.codexRpcMethod : 'account/read'
     )
     const [codexRpcParams, setCodexRpcParams] = useState<string>(
         typeof data?.codexRpcParams === 'string' ? data.codexRpcParams : '{}'
