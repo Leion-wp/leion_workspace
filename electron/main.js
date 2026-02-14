@@ -990,6 +990,39 @@ ipcMain.handle('gemini:stream', async (_, { messages, model = 'gemini-2.0-flash'
     }
 });
 
+ipcMain.handle('gemini:listModels', async () => {
+    try {
+        const ai = await getGeminiClient();
+        const response = await ai.models.list();
+        const models = [];
+        if (response && typeof response[Symbol.asyncIterator] === 'function') {
+            for await (const model of response) {
+                models.push(model);
+            }
+        } else if (Array.isArray(response)) {
+            models.push(...response);
+        } else if (response && Array.isArray(response.models)) {
+            models.push(...response.models);
+        }
+
+        const filtered = models
+            .filter(m => {
+                return m.supportedGenerationMethods?.includes('generateContent') || m.name.toLowerCase().includes('gemini');
+            })
+            .map(m => ({
+                name: m.name.replace('models/', ''),
+                displayName: m.displayName,
+                description: m.description,
+                id: m.name
+            }));
+
+        return filtered;
+    } catch (err) {
+        console.error('Failed to list Gemini models:', err);
+        return [];
+    }
+});
+
 // ─── Codex App-Server Integration ─────────────────────────────────────────────
 
 let codexProcess = null;

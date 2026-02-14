@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('platform', {
     gemini: {
         chat: (options) => ipcRenderer.invoke('gemini:chat', options),
         stream: (options) => ipcRenderer.invoke('gemini:stream', options),
+        listModels: () => ipcRenderer.invoke('gemini:listModels'),
         onChunk: (streamId, callback) => {
             const channel = `gemini:chunk:${streamId}`;
             const listener = (_, chunk) => callback(chunk);

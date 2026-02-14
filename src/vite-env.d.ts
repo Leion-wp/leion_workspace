@@ -52,10 +52,11 @@ interface PlatformBridge {
     gemini?: {
         chat: (options: { messages: Array<{ role: string; content: string }>; model?: string }) => Promise<{ text: string }>;
         stream: (options: { messages: Array<{ role: string; content: string }>; model?: string }) => Promise<{ streamId: string }>;
+        listModels: () => Promise<Array<{ id: string; displayName: string; description?: string; name: string }>>;
         onChunk: (streamId: string, callback: (chunk: { text: string; done: boolean; error?: string }) => void) => () => void;
     };
     codex?: {
-        initialize: (options: { clientInfo: { name: string; version: string } }) => Promise<{ sessionId: string | null; [key: string]: unknown }>;
+        initialize: (options: { clientInfo: { name: string; version: string } }) => Promise<{ sessionId: string | null;[key: string]: unknown }>;
         turn: (options: { sessionId?: string | null; message: string }) => Promise<{ ok: boolean; usedMethod?: string; sessionId?: string | null; result?: unknown }>;
         approve: (sessionId: string, toolCallId: string, decision: 'allow' | 'deny' | 'allow-always') => Promise<void>;
         stop: () => Promise<void>;
