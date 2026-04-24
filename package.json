@@ -4,10 +4,10 @@
   "description": "Tiling window manager for Leion development environment",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "node ./node_modules/vite/bin/vite.js",
     "build": "tsc && vite build",
-    "electron": "electron .",
-    "dev:electron": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron": "node ./node_modules/electron/cli.js .",
+    "dev:electron": "node ./scripts/dev-electron.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
