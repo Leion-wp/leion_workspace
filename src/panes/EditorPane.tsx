@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { usePaneStateStore } from './paneStateStore';
-import { create } from 'zustand';
 import { useState } from 'react';
 import { Layout, X, Plus, Circle, FileCode, ChevronRight, GitBranch } from 'lucide-react';
 import { PaneFileExplorer } from './PaneFileExplorer';
@@ -9,7 +8,6 @@ import { cn } from '../lib/utils';
 import { useSettingsStore } from '../store/settings';
 import './EditorPane.css';
 
-// --- EDITOR STORE (internal for now, could be moved) ---
 interface EditorFile {
     path: string;
     content: string;
@@ -17,52 +15,14 @@ interface EditorFile {
     isDirty: boolean;
 }
 
-interface EditorState {
-    files: EditorFile[];
-    activePath: string | null;
-    addFile: (path: string, content: string) => void;
-    closeFile: (path: string) => void;
-    setActive: (path: string) => void;
-    updateContent: (path: string, content: string) => void;
-    setDirty: (path: string, dirty: boolean) => void;
+const detectLanguage = (path: string) => {
+    const ext = path.split('.').pop()?.toLowerCase() || 'txt';
+    const langMap: Record<string, string> = {
+        ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+        json: 'json', html: 'html', css: 'css', md: 'markdown', py: 'python'
+    };
+    return langMap[ext] || 'plaintext';
 }
-
-const useEditorStore = create<EditorState>((set) => ({
-    files: [],
-    activePath: null,
-    addFile: (path, content) => set((state) => {
-        if (state.files.some(f => f.path === path)) {
-            return { activePath: path };
-        }
-        const ext = path.split('.').pop()?.toLowerCase() || 'txt';
-        // Simple language detection
-        const langMap: Record<string, string> = {
-            ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
-            json: 'json', html: 'html', css: 'css', md: 'markdown', py: 'python'
-        };
-        const language = langMap[ext] || 'plaintext';
-
-        return {
-            files: [...state.files, { path, content, language, isDirty: false }],
-            activePath: path
-        };
-    }),
-    closeFile: (path) => set((state) => {
-        const newFiles = state.files.filter(f => f.path !== path);
-        let newActive = state.activePath;
-        if (state.activePath === path) {
-            newActive = newFiles.length > 0 ? newFiles[newFiles.length - 1].path : null;
-        }
-        return { files: newFiles, activePath: newActive };
-    }),
-    setActive: (path) => set({ activePath: path }),
-    updateContent: (path, content) => set((state) => ({
-        files: state.files.map(f => f.path === path ? { ...f, content, isDirty: true } : f)
-    })),
-    setDirty: (path, dirty) => set((state) => ({
-        files: state.files.map(f => f.path === path ? { ...f, isDirty: dirty } : f)
-    })),
-}));
 
 // --- COMPONENTS ---
 
@@ -73,13 +33,63 @@ interface EditorPaneProps {
 }
 
 export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
-    const { files, activePath, addFile, closeFile, setActive, updateContent, setDirty } = useEditorStore();
+    const [files, setFiles] = useState<EditorFile[]>(() => {
+        if (Array.isArray(data?.editorFiles)) {
+            return (data.editorFiles as EditorFile[]).map((file) => ({
+                ...file,
+                language: file.language || detectLanguage(file.path),
+                isDirty: Boolean(file.isDirty),
+            }))
+        }
+        return []
+    })
+    const [activePath, setActivePath] = useState<string | null>(() => typeof data?.editorActivePath === 'string' ? data.editorActivePath : null)
     const activeFile = files.find(f => f.path === activePath);
     const theme = useSettingsStore((state) => state.theme);
 
     // --- WORKSPACE STATE ---
     const [showSidebar, setShowSidebar] = useState(Boolean(data?.editorShowSidebar));
     const [rootPath, setRootPath] = useState<string>(typeof data?.editorRootPath === 'string' ? data.editorRootPath : '');
+
+    const addFile = (path: string, content: string) => {
+        setFiles((currentFiles) => {
+            if (currentFiles.some((file) => file.path === path)) {
+                setActivePath(path)
+                return currentFiles
+            }
+
+            return [
+                ...currentFiles,
+                { path, content, language: detectLanguage(path), isDirty: false }
+            ]
+        })
+        setActivePath(path)
+    }
+
+    const closeFile = (path: string) => {
+        setFiles((currentFiles) => {
+            const newFiles = currentFiles.filter((file) => file.path !== path)
+            setActivePath((currentActivePath) => {
+                if (currentActivePath !== path) return currentActivePath
+                return newFiles.length > 0 ? newFiles[newFiles.length - 1].path : null
+            })
+            return newFiles
+        })
+    }
+
+    const setActive = (path: string) => setActivePath(path)
+
+    const updateFileContent = (path: string, content: string) => {
+        setFiles((currentFiles) => currentFiles.map((file) =>
+            file.path === path ? { ...file, content, isDirty: true } : file
+        ))
+    }
+
+    const setDirty = (path: string, dirty: boolean) => {
+        setFiles((currentFiles) => currentFiles.map((file) =>
+            file.path === path ? { ...file, isDirty: dirty } : file
+        ))
+    }
 
     const handlePaneOpenFile = async (path: string, _name: string) => {
         if (!window.platform?.fs) return;
@@ -99,7 +109,22 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
         if (typeof data?.editorShowSidebar === 'boolean' && data.editorShowSidebar !== showSidebar) {
             setShowSidebar(data.editorShowSidebar)
         }
-    }, [data?.editorRootPath, data?.editorShowSidebar])
+        if (Array.isArray(data?.editorFiles)) {
+            const nextFiles = (data.editorFiles as EditorFile[]).map((file) => ({
+                ...file,
+                language: file.language || detectLanguage(file.path),
+                isDirty: Boolean(file.isDirty),
+            }))
+            const currentSnapshot = JSON.stringify(files)
+            const nextSnapshot = JSON.stringify(nextFiles)
+            if (currentSnapshot !== nextSnapshot) {
+                setFiles(nextFiles)
+            }
+        }
+        if (typeof data?.editorActivePath === 'string' && data.editorActivePath !== activePath) {
+            setActivePath(data.editorActivePath)
+        }
+    }, [data?.editorRootPath, data?.editorShowSidebar, data?.editorFiles, data?.editorActivePath])
 
     useEffect(() => {
         if (data?.content && typeof data.content === 'string') {
@@ -111,7 +136,7 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
 
             if (existing) {
                 if (existing.content !== data.content) {
-                    updateContent(targetPath, data.content);
+                    updateFileContent(targetPath, data.content);
                 }
                 // Also ensure it is active?
                 if (activePath !== targetPath) {
@@ -128,7 +153,7 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                 addFile(data.editorFilePath, initialContent);
             }
         }
-    }, [data?.lastPaste, data?.editorFilePath, data?.content, data?.editorContent, files, activePath, addFile, setActive, updateContent]);
+    }, [data?.lastPaste, data?.editorFilePath, data?.content, data?.editorContent, files, activePath]);
     // We strictly depend on data changes. `files` and actions are stable or safe to omit if we want to avoid loops, 
     // but ideally we include them. 
     // However, including `files` might loop if we modify files.
@@ -145,15 +170,17 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                 content: activeFile.content,
                 selection: ''
             });
-
-            onUpdate?.({
-                editorContent: activeFile.content,
-                editorFilePath: activeFile.path,
-                editorRootPath: rootPath,
-                editorShowSidebar: showSidebar,
-            });
         }
-    }, [activeFile, id, onUpdate, rootPath, showSidebar]);
+
+        onUpdate?.({
+            editorFiles: files,
+            editorActivePath: activePath,
+            editorContent: activeFile?.content,
+            editorFilePath: activeFile?.path,
+            editorRootPath: rootPath,
+            editorShowSidebar: showSidebar,
+        });
+    }, [activeFile, activePath, files, id, onUpdate, rootPath, showSidebar]);
 
     const handleOpenFile = async () => {
         if (!window.platform?.fs) return;
@@ -336,7 +363,7 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                             path={activeFile.path}
                             language={activeFile.language}
                             value={activeFile.content}
-                            onChange={(val) => updateContent(activeFile.path, val || '')}
+                            onChange={(val) => updateFileContent(activeFile.path, val || '')}
                             onMount={handleEditorMount}
                             theme={theme === 'dark' ? 'vs-dark' : 'light'}
                             options={{

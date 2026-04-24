@@ -34,6 +34,15 @@ export function ChatPane({ id, data, onUpdate }: ChatPaneProps) {
     const currentUrl = provider === 'custom' ? customUrl : AI_PROVIDERS[provider].url
     const currentProvider = AI_PROVIDERS[provider]
 
+    useEffect(() => {
+        if (data?.provider && data.provider !== provider) {
+            setProvider(data.provider)
+        }
+        if (typeof data?.customUrl === 'string' && data.customUrl !== customUrl) {
+            setCustomUrl(data.customUrl)
+        }
+    }, [data?.provider, data?.customUrl])
+
     // Register with chatCommandService so ChatNode can inject prompts
     useEffect(() => {
         const webview = webviewRef.current as (HTMLElement & { executeJavaScript: (s: string) => Promise<unknown> }) | null

@@ -12,8 +12,8 @@ import { cn } from '../lib/utils';
 
 interface BrowserPaneProps {
     id?: string;
-    data?: BrowserData;
-    onUpdate?: (data: Partial<BrowserData>) => void;
+    data?: BrowserData & { history?: { url: string; title: string; timestamp: number }[] };
+    onUpdate?: (data: Partial<BrowserData> & { history?: { url: string; title: string; timestamp: number }[] }) => void;
 }
 
 const createTab = (url = 'https://www.google.com'): BrowserTab => ({
@@ -31,7 +31,7 @@ export function BrowserPane({ id, data, onUpdate }: BrowserPaneProps) {
     const [activeTabId, setActiveTabIdState] = useState(data?.activeTabId || initialTab.id);
     const [inputUrl, setInputUrl] = useState('');
     const [bookmarks, setBookmarks] = useState(data?.bookmarks || []);
-    const [history, setHistory] = useState<{ url: string; title: string; timestamp: number }[]>([])
+    const [history, setHistory] = useState<{ url: string; title: string; timestamp: number }[]>(data?.history || [])
     const [showHistory, setShowHistory] = useState(false);
     const [devToolsOpen, setDevToolsOpen] = useState(false);
     const webviewRef = useRef<HTMLWebViewElement>(null);
@@ -50,7 +50,10 @@ export function BrowserPane({ id, data, onUpdate }: BrowserPaneProps) {
         if (Array.isArray(data.bookmarks)) {
             setBookmarks(data.bookmarks)
         }
-    }, [data?.tabs, data?.activeTabId, data?.bookmarks])
+        if (Array.isArray(data.history)) {
+            setHistory(data.history)
+        }
+    }, [data?.tabs, data?.activeTabId, data?.bookmarks, data?.history])
 
     // --- EFFECT: Register JS Execution ---
     useEffect(() => {
@@ -162,8 +165,8 @@ export function BrowserPane({ id, data, onUpdate }: BrowserPaneProps) {
 
     // --- EFFECT: Sync to Parent ---
     useEffect(() => {
-        onUpdate?.({ tabs, activeTabId, bookmarks });
-    }, [tabs, activeTabId, bookmarks, onUpdate]);
+        onUpdate?.({ tabs, activeTabId, bookmarks, history });
+    }, [tabs, activeTabId, bookmarks, history, onUpdate]);
 
     // --- ACTIONS ---
 
