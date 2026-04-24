@@ -89,11 +89,28 @@ let mainWindow;
 const terminals = new Map(); // Store terminal processes
 const popoutWindows = new Map(); // paneId -> BrowserWindow
 
-function emitWindowState() {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.webContents.send('window:state-changed', {
-        isMaximized: mainWindow.isMaximized(),
+function emitWindowState(targetWindow) {
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    targetWindow.webContents.send('window:state-changed', {
+        isMaximized: targetWindow.isMaximized(),
+        isFocused: targetWindow.isFocused(),
     });
+}
+
+function attachWindowStateListeners(targetWindow) {
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    const emit = () => emitWindowState(targetWindow);
+    targetWindow.on('maximize', emit);
+    targetWindow.on('unmaximize', emit);
+    targetWindow.on('enter-full-screen', emit);
+    targetWindow.on('leave-full-screen', emit);
+    targetWindow.on('focus', emit);
+    targetWindow.on('blur', emit);
+    targetWindow.webContents.once('did-finish-load', emit);
+}
+
+function getEventWindow(event) {
+    return BrowserWindow.fromWebContents(event.sender) || mainWindow;
 }
 
 function sendToAllWindows(channel, ...args) {
@@ -199,26 +216,29 @@ function createWindow() {
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
     }
 
-    mainWindow.on('maximize', emitWindowState);
-    mainWindow.on('unmaximize', emitWindowState);
-    mainWindow.on('enter-full-screen', emitWindowState);
-    mainWindow.on('leave-full-screen', emitWindowState);
-    mainWindow.webContents.once('did-finish-load', emitWindowState);
+    attachWindowStateListeners(mainWindow);
 }
 
 // Window controls
-ipcMain.on('window:minimize', () => mainWindow?.minimize());
-ipcMain.on('window:maximize', () => {
-    if (mainWindow?.isMaximized()) {
-        mainWindow.unmaximize();
+ipcMain.on('window:minimize', (event) => {
+    getEventWindow(event)?.minimize();
+});
+ipcMain.on('window:maximize', (event) => {
+    const targetWindow = getEventWindow(event);
+    if (targetWindow?.isMaximized()) {
+        targetWindow.unmaximize();
     } else {
-        mainWindow?.maximize();
+        targetWindow?.maximize();
     }
 });
-ipcMain.on('window:close', () => mainWindow?.close());
-ipcMain.handle('window:getState', async () => ({
-    isMaximized: Boolean(mainWindow?.isMaximized()),
-}));
+ipcMain.on('window:close', (event) => getEventWindow(event)?.close());
+ipcMain.handle('window:getState', async (event) => {
+    const targetWindow = getEventWindow(event);
+    return {
+        isMaximized: Boolean(targetWindow?.isMaximized()),
+        isFocused: Boolean(targetWindow?.isFocused()),
+    };
+});
 
 // Storage (layout persistence)
 ipcMain.handle('storage:save', async (_, key, data) => {
@@ -1446,6 +1466,7 @@ ipcMain.handle('popout:open', async (_, paneId, paneConfig) => {
         : `file://${path.join(__dirname, '../dist/index.html')}?popout=${encodeURIComponent(paneId)}`;
 
     popoutWin.loadURL(url);
+    attachWindowStateListeners(popoutWin);
 
     // Handle webview popup requests in popout window
     popoutWin.webContents.on('did-attach-webview', (event, webviewWebContents) => {

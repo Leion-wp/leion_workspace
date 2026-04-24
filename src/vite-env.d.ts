@@ -5,8 +5,8 @@ interface PlatformBridge {
         minimize: () => void;
         maximize: () => void;
         close: () => void;
-        getState: () => Promise<{ isMaximized: boolean }>;
-        onStateChange: (callback: (state: { isMaximized: boolean }) => void) => () => void;
+        getState: () => Promise<{ isMaximized: boolean; isFocused: boolean }>;
+        onStateChange: (callback: (state: { isMaximized: boolean; isFocused: boolean }) => void) => () => void;
     };
     storage: {
         save: (key: string, data: string) => Promise<void>;

@@ -2,8 +2,14 @@ import { Minus, Moon, Square, Sun, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '../store/settings'
 
-export function Titlebar() {
+interface TitlebarProps {
+    title?: string
+    subtitle?: string
+}
+
+export function Titlebar({ title = 'Leion Workspace', subtitle }: TitlebarProps) {
     const [isMaximized, setIsMaximized] = useState(false)
+    const [isFocused, setIsFocused] = useState(true)
     const theme = useSettingsStore((state) => state.theme)
     const toggleTheme = useSettingsStore((state) => state.toggleTheme)
     const handleMinimize = () => window.platform?.window.minimize()
@@ -13,11 +19,14 @@ export function Titlebar() {
     useEffect(() => {
         let mounted = true
         window.platform?.window.getState?.().then((state) => {
-            if (mounted) setIsMaximized(Boolean(state?.isMaximized))
+            if (!mounted) return
+            setIsMaximized(Boolean(state?.isMaximized))
+            setIsFocused(state?.isFocused !== false)
         }).catch(() => {})
 
         const unsubscribe = window.platform?.window.onStateChange?.((state) => {
             setIsMaximized(Boolean(state?.isMaximized))
+            setIsFocused(state?.isFocused !== false)
         })
 
         return () => {
@@ -28,12 +37,13 @@ export function Titlebar() {
 
     return (
         <header
-            className="h-8 bg-background/80 backdrop-blur-md border-b border-border/40 flex items-center justify-between select-none draggable"
+            className={`h-8 backdrop-blur-md border-b border-border/40 flex items-center justify-between select-none draggable transition-opacity ${isFocused ? 'bg-background/80 opacity-100' : 'bg-background/70 opacity-85'}`}
             onDoubleClick={handleMaximize}
         >
-            <div className="px-4 text-xs font-medium text-muted-foreground flex items-center gap-2">
+            <div className="px-4 text-xs font-medium text-muted-foreground flex items-center gap-2 min-w-0">
                 <div className="w-2 h-2 rounded-full bg-primary/20" />
-                Leion Workspace
+                <span className="truncate">{title}</span>
+                {subtitle ? <span className="text-[10px] text-muted-foreground/70 truncate">• {subtitle}</span> : null}
             </div>
             <div className="flex h-full no-drag">
                 <button
