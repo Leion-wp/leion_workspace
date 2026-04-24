@@ -5,6 +5,8 @@ interface PlatformBridge {
         minimize: () => void;
         maximize: () => void;
         close: () => void;
+        getState: () => Promise<{ isMaximized: boolean }>;
+        onStateChange: (callback: (state: { isMaximized: boolean }) => void) => () => void;
     };
     storage: {
         save: (key: string, data: string) => Promise<void>;
@@ -40,6 +42,7 @@ interface PlatformBridge {
         readFile: (path: string) => Promise<string>;
         writeFile: (path: string, content: string) => Promise<void>;
         openFolderDialog: () => Promise<string | null>;
+        openFileDialog: () => Promise<string | null>;
     };
     fileWatcher?: {
         start: (id: string, glob: string, cwd?: string) => Promise<boolean>;

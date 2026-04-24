@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Layout, X, Plus, Circle, FileCode, ChevronRight, GitBranch } from 'lucide-react';
 import { PaneFileExplorer } from './PaneFileExplorer';
 import { cn } from '../lib/utils';
+import { useSettingsStore } from '../store/settings';
 import './EditorPane.css';
 
 // --- EDITOR STORE (internal for now, could be moved) ---
@@ -74,6 +75,7 @@ interface EditorPaneProps {
 export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
     const { files, activePath, addFile, closeFile, setActive, updateContent, setDirty } = useEditorStore();
     const activeFile = files.find(f => f.path === activePath);
+    const theme = useSettingsStore((state) => state.theme);
 
     // --- WORKSPACE STATE ---
     const [showSidebar, setShowSidebar] = useState(false);
@@ -144,7 +146,7 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
 
     const handleOpenFile = async () => {
         if (!window.platform?.fs) return;
-        const picked = await window.platform.fs.openFolderDialog(); // Actually file picker in this context
+        const picked = await window.platform.fs.openFileDialog();
         if (!picked) return;
         const content = await window.platform.fs.readFile(picked).catch(() => '');
         if (content !== null) addFile(picked, content);
@@ -199,7 +201,10 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
 
     return (
         <div
-            className="flex h-full bg-[#1e1e1e] text-[#cccccc] font-sans overflow-hidden"
+            className={cn(
+                "flex h-full font-sans overflow-hidden",
+                theme === 'dark' ? "bg-[#1e1e1e] text-[#cccccc]" : "bg-[#f8fafc] text-[#0f172a]"
+            )}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
@@ -214,7 +219,10 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
 
             <div className="flex-1 flex flex-col h-full min-w-0">
                 {/* TABS BAR */}
-                <div className="flex bg-[#252526] overflow-x-auto scrollbar-hide">
+                <div className={cn(
+                    "flex overflow-x-auto scrollbar-hide",
+                    theme === 'dark' ? "bg-[#252526]" : "bg-[#e2e8f0]"
+                )}>
                     {/* Toggle Sidebar Button */}
                     <button
                         onClick={async () => {
@@ -231,8 +239,13 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                             }
                         }}
                         className={cn(
-                            "h-9 w-9 flex items-center justify-center hover:bg-[#3e3e42] transition-colors border-r border-[#2d2d2d]",
-                            showSidebar ? "text-white bg-[#3e3e42]" : "text-[#c5c5c5]"
+                            "h-9 w-9 flex items-center justify-center transition-colors border-r",
+                            theme === 'dark'
+                                ? "border-[#2d2d2d] hover:bg-[#3e3e42]"
+                                : "border-[#cbd5e1] hover:bg-[#dbe4f0]",
+                            showSidebar
+                                ? theme === 'dark' ? "text-white bg-[#3e3e42]" : "text-[#0f172a] bg-[#dbe4f0]"
+                                : theme === 'dark' ? "text-[#c5c5c5]" : "text-[#475569]"
                         )}
                         title={showSidebar ? "Hide Workspace" : "Show Workspace"}
                     >
@@ -244,13 +257,18 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                             key={file.path}
                             onClick={() => setActive(file.path)}
                             className={cn(
-                                "group flex items-center min-w-[120px] max-w-[200px] h-9 px-3 border-r border-[#2d2d2d] cursor-pointer select-none text-xs",
-                                activePath === file.path ? "bg-[#1e1e1e] text-white" : "bg-[#2d2d2d] text-[#969696] hover:bg-[#2d2d2d]"
+                                "group flex items-center min-w-[120px] max-w-[200px] h-9 px-3 border-r cursor-pointer select-none text-xs",
+                                theme === 'dark'
+                                    ? "border-[#2d2d2d]"
+                                    : "border-[#cbd5e1]",
+                                activePath === file.path
+                                    ? theme === 'dark' ? "bg-[#1e1e1e] text-white" : "bg-[#f8fafc] text-[#0f172a]"
+                                    : theme === 'dark' ? "bg-[#2d2d2d] text-[#969696] hover:bg-[#35363a]" : "bg-[#e2e8f0] text-[#475569] hover:bg-[#dbe4f0]"
                             )}
                         >
                             <FileCode size={14} className={cn("mr-2 shrink-0",
                                 file.language === 'typescript' ? 'text-blue-400' :
-                                    file.language === 'json' ? 'text-yellow-400' : 'text-slate-400'
+                                    file.language === 'json' ? 'text-yellow-500' : 'text-slate-400'
                             )} />
                             <span className="truncate flex-1">{file.path.split(/[\\/]/).pop()}</span>
                             {file.isDirty ? (
@@ -259,7 +277,8 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                             <button
                                 onClick={(e) => { e.stopPropagation(); closeFile(file.path); }}
                                 className={cn(
-                                    "ml-2 p-0.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-[#4a4a4a]",
+                                    "ml-2 p-0.5 rounded-sm opacity-0 group-hover:opacity-100",
+                                    theme === 'dark' ? "hover:bg-[#4a4a4a]" : "hover:bg-[#cbd5e1]",
                                     file.isDirty ? "group-hover:block" : ""
                                 )}
                             >
@@ -270,7 +289,10 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                     {/* Add/Open Button */}
                     <button
                         onClick={handleOpenFile}
-                        className="h-9 w-9 flex items-center justify-center hover:bg-[#3e3e42] text-[#c5c5c5] transition-colors"
+                        className={cn(
+                            "h-9 w-9 flex items-center justify-center transition-colors",
+                            theme === 'dark' ? "hover:bg-[#3e3e42] text-[#c5c5c5]" : "hover:bg-[#dbe4f0] text-[#475569]"
+                        )}
                         title="Open File"
                     >
                         <Plus size={16} />
@@ -279,10 +301,16 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
 
                 {/* BREADCRUMBS */}
                 {activeFile && (
-                    <div className="h-6 flex items-center px-4 bg-[#1e1e1e] text-[11px] text-[#aaaaaa] border-b border-[#2d2d2d]">
+                    <div className={cn(
+                        "h-6 flex items-center px-4 text-[11px] border-b",
+                        theme === 'dark' ? "bg-[#1e1e1e] text-[#aaaaaa] border-[#2d2d2d]" : "bg-[#f8fafc] text-[#475569] border-[#cbd5e1]"
+                    )}>
                         <span className="hover:text-white cursor-pointer transition-colors">src</span>
-                        <ChevronRight size={12} className="mx-1 text-[#666]" />
-                        <span className="hover:text-white cursor-pointer transition-colors font-medium text-white">
+                        <ChevronRight size={12} className={cn("mx-1", theme === 'dark' ? "text-[#666]" : "text-[#94a3b8]")} />
+                        <span className={cn(
+                            "cursor-pointer transition-colors font-medium",
+                            theme === 'dark' ? "hover:text-white text-white" : "hover:text-[#020617] text-[#0f172a]"
+                        )}>
                             {activeFile.path.split(/[\\/]/).pop()}
                         </span>
                         {activeFile.isDirty && <span className="ml-2 text-[10px] text-amber-500 font-medium">● Unsaved</span>}
@@ -290,7 +318,7 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                 )}
 
                 {/* EDITOR AREA */}
-                <div className="flex-1 relative bg-[#1e1e1e]">
+                <div className={cn("flex-1 relative", theme === 'dark' ? "bg-[#1e1e1e]" : "bg-[#f8fafc]")}>
                     {activeFile ? (
                         <Editor
                             height="100%"
@@ -299,7 +327,7 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                             value={activeFile.content}
                             onChange={(val) => updateContent(activeFile.path, val || '')}
                             onMount={handleEditorMount}
-                            theme="vs-dark"
+                            theme={theme === 'dark' ? 'vs-dark' : 'light'}
                             options={{
                                 fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
                                 fontSize: 13,
@@ -315,7 +343,10 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                             }}
                         />
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-[#666666] gap-4">
+                        <div className={cn(
+                            "flex flex-col items-center justify-center h-full gap-4",
+                            theme === 'dark' ? "text-[#666666]" : "text-[#64748b]"
+                        )}>
                             <FileCode size={64} strokeWidth={1} />
                             <div className="text-sm">No file is open</div>
                             <div className="flex gap-2">
@@ -325,14 +356,20 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                                 <button
                                     onClick={async () => {
                                         if (window.platform?.fs) {
-                                            const picked = await window.platform.fs.openFolderDialog();
+                                            const picked = await window.platform.fs.openFileDialog();
                                             if (picked) {
-                                                setRootPath(picked);
+                                                const root = picked.replace(/[\\/][^\\/]+$/, '')
+                                                setRootPath(root);
+                                                const content = await window.platform.fs.readFile(picked).catch(() => '')
+                                                if (content !== null) addFile(picked, content)
                                                 setShowSidebar(true);
                                             }
                                         }
                                     }}
-                                    className="px-3 py-1 bg-[#3c3c3c] hover:bg-[#4a4a4a] text-white text-xs rounded-sm transition-colors"
+                                    className={cn(
+                                        "px-3 py-1 text-xs rounded-sm transition-colors",
+                                        theme === 'dark' ? "bg-[#3c3c3c] hover:bg-[#4a4a4a] text-white" : "bg-[#cbd5e1] hover:bg-[#94a3b8] text-[#0f172a]"
+                                    )}
                                 >
                                     Open Folder (Workspace)
                                 </button>
@@ -342,7 +379,10 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
                 </div>
 
                 {/* STATUS BAR */}
-                <div className="h-6 bg-[#007acc] text-white text-[11px] flex items-center px-3 gap-4 select-none">
+                <div className={cn(
+                    "h-6 text-[11px] flex items-center px-3 gap-4 select-none",
+                    theme === 'dark' ? "bg-[#007acc] text-white" : "bg-[#2563eb] text-white"
+                )}>
                     <div className="flex items-center gap-1 hover:bg-white/10 px-1 rounded cursor-pointer">
                         <GitBranch size={10} />
                         <span>main</span>
