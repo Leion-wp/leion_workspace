@@ -12,9 +12,10 @@ import { useSettingsStore } from '../store/settings';
 interface TerminalPaneProps {
     id: string;
     type?: 'terminal' | 'gemini';
+    data?: Record<string, unknown>;
 }
 
-export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
+export function TerminalPane({ id, type = 'terminal', data }: TerminalPaneProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const initRef = useRef(false);
     const ptyReadyRef = useRef(false);
@@ -31,6 +32,10 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
     const lastCwdSourcePaneId = useTerminalProfileStore((s) => s.lastCwdSourcePaneId);
     const setSharedCwd = useTerminalProfileStore((s) => s.setSharedCwd);
     const theme = useSettingsStore((s) => s.theme);
+    const paneCwd = typeof data?.cwd === 'string' ? data.cwd : undefined;
+    const paneInitCommands = typeof data?.initCommands === 'string'
+        ? data.initCommands.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+        : [];
 
     // Initialize ambient state on mount, clean up on unmount
     useEffect(() => {
@@ -189,9 +194,9 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
             // Invoke creation with options object based on prop
             window.platform.terminal.create(terminalId, {
                 type,
-                cwd: sharedCwd || undefined,
+                cwd: paneCwd || sharedCwd || undefined,
                 env: sharedEnv,
-                initCommands: bootstrapCommands,
+                initCommands: [...bootstrapCommands, ...paneInitCommands],
             } as any).then((success: boolean) => {
                 if (!success) {
                     terminal.writeln('Failed to create terminal process');
@@ -227,6 +232,16 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
         currentCwdRef.current = sharedCwd;
         usePaneStateStore.getState().updatePaneState(id, { cwd: sharedCwd });
     }, [id, profileLoaded, sharedCwd, syncCwdAcrossTerminals, lastCwdSourcePaneId]);
+
+    useEffect(() => {
+        if (!profileLoaded || !paneCwd || !ptyReadyRef.current || !window.platform?.terminal) return
+        if (currentCwdRef.current === paneCwd) return
+
+        const terminalId = `terminal-${id}`
+        window.platform.terminal.send(terminalId, `cd "${paneCwd}"\r`)
+        currentCwdRef.current = paneCwd
+        usePaneStateStore.getState().updatePaneState(id, { cwd: paneCwd })
+    }, [id, paneCwd, profileLoaded])
 
     return (
         <div className={`flex flex-col h-full overflow-hidden ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50'}`}>

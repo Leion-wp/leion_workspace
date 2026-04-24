@@ -1,5 +1,5 @@
 import { MosaicBranch, MosaicNode, MosaicContext } from 'react-mosaic-component';
-import { Maximize2, X, Split, Minus, Radio, ExternalLink } from 'lucide-react';
+import { Maximize2, X, Split, Minus, Radio, ExternalLink, SlidersHorizontal } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useLayoutStore } from './store';
 import { useBroadcastStore } from './broadcastStore';
@@ -98,6 +98,18 @@ export function CustomToolbar({ title, path, paneId, collapsed, onToggleCollapse
                                 title="Pop out to window"
                             >
                                 <ExternalLink size={12} />
+                            </Button>
+                        )}
+
+                        {!collapsed && paneId && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-sm hover:bg-accent hover:text-accent-foreground"
+                                onClick={() => window.dispatchEvent(new CustomEvent('leion:open-pane-settings', { detail: { paneId } }))}
+                                title="Pane settings"
+                            >
+                                <SlidersHorizontal size={12} />
                             </Button>
                         )}
 

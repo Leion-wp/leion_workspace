@@ -197,6 +197,20 @@ export function CommandPalette() {
                 },
                 keywords: ['settings', 'preferences', 'appearance'],
             },
+            {
+                id: 'open-active-pane-settings',
+                label: 'Open active pane settings',
+                category: 'Navigation',
+                icon: <Settings size={14} />,
+                action: () => {
+                    const currentPaneId = useShortcutsStore.getState().activePane
+                    if (currentPaneId) {
+                        window.dispatchEvent(new CustomEvent('leion:open-pane-settings', { detail: { paneId: currentPaneId } }))
+                    }
+                    setIsOpen(false)
+                },
+                keywords: ['pane', 'settings', 'config', 'active'],
+            },
             { id: 'maximize', label: 'Maximize Active Pane', category: 'Layout', icon: <Maximize2 size={14} />, action: () => { /* handled by mosaic expand */ setIsOpen(false) } },
             {
                 id: 'toggle-terminal-cwd-sync',

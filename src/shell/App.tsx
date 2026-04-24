@@ -5,7 +5,7 @@ import { FileExplorer } from './FileExplorer'
 import { LayoutManager } from '../layout/LayoutManager'
 import { CommandPalette } from '../layout/CommandPalette'
 import { PopoutApp } from './PopoutApp'
-import { ContextMenuProvider } from '../components'
+import { ContextMenuProvider, PaneSettingsModal } from '../components'
 import { useShortcuts, useShortcutsStore } from '../hooks/useShortcuts'
 import { useLayoutStore } from '../layout/store'
 import { useBroadcastStore } from '../layout/broadcastStore'
@@ -216,6 +216,7 @@ function App() {
                 </div>
             </div>
             <CommandPalette />
+            <PaneSettingsModal />
         </ContextMenuProvider>
     )
 }

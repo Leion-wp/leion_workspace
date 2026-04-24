@@ -78,8 +78,8 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
     const theme = useSettingsStore((state) => state.theme);
 
     // --- WORKSPACE STATE ---
-    const [showSidebar, setShowSidebar] = useState(false);
-    const [rootPath, setRootPath] = useState<string>('');
+    const [showSidebar, setShowSidebar] = useState(Boolean(data?.editorShowSidebar));
+    const [rootPath, setRootPath] = useState<string>(typeof data?.editorRootPath === 'string' ? data.editorRootPath : '');
 
     const handlePaneOpenFile = async (path: string, _name: string) => {
         if (!window.platform?.fs) return;
@@ -92,6 +92,15 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
     };
 
     // Initial Load & Sync from props
+    useEffect(() => {
+        if (typeof data?.editorRootPath === 'string' && data.editorRootPath !== rootPath) {
+            setRootPath(data.editorRootPath)
+        }
+        if (typeof data?.editorShowSidebar === 'boolean' && data.editorShowSidebar !== showSidebar) {
+            setShowSidebar(data.editorShowSidebar)
+        }
+    }, [data?.editorRootPath, data?.editorShowSidebar])
+
     useEffect(() => {
         if (data?.content && typeof data.content === 'string') {
             // Prioritize unique filePath from data if available, specially for "New Pane"
@@ -140,9 +149,11 @@ export function EditorPane({ id, data, onUpdate }: EditorPaneProps) {
             onUpdate?.({
                 editorContent: activeFile.content,
                 editorFilePath: activeFile.path,
+                editorRootPath: rootPath,
+                editorShowSidebar: showSidebar,
             });
         }
-    }, [activeFile, id, onUpdate]);
+    }, [activeFile, id, onUpdate, rootPath, showSidebar]);
 
     const handleOpenFile = async () => {
         if (!window.platform?.fs) return;
