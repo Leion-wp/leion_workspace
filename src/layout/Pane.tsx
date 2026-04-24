@@ -129,6 +129,12 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
         ] : []
 
         const items: MenuItem[] = [
+            {
+                label: 'Pane settings',
+                icon: '⚙️',
+                action: () => window.dispatchEvent(new CustomEvent('leion:open-pane-settings', { detail: { paneId: id } })),
+            },
+            { separator: true, label: '', action: () => { } },
             { label: 'Move to Top', icon: '⬆️', action: () => movePane(id, 'top') },
             { label: 'Move to Bottom', icon: '⬇️', action: () => movePane(id, 'bottom') },
             { label: 'Move to Left', icon: '⬅️', action: () => movePane(id, 'left') },
@@ -221,9 +227,9 @@ export function Pane({ id, paneConfig: paneConfigOverride }: PaneProps) {
             case 'browser':
                 return <BrowserPane id={id} data={pane?.data as any} onUpdate={handleUpdate} />
             case 'terminal':
-                return <TerminalPane id={id} type="terminal" />
+                return <TerminalPane id={id} type="terminal" data={pane?.data} />
             case 'gemini':
-                return <TerminalPane id={id} type="gemini" />
+                return <TerminalPane id={id} type="gemini" data={pane?.data} />
             case 'chat':
                 return <ChatPane id={id} data={pane?.data as any} onUpdate={handleUpdate} />
             case 'codeserver':

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, SidebarOpen } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { ThreadSidebar } from './ThreadSidebar'
 import { ChatArea } from './ChatArea'
 import { AgentWorkspace } from './AgentWorkspace'

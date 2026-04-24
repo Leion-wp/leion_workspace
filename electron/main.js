@@ -15,9 +15,103 @@ const allowedPathRoots = new Set([
     path.resolve(userDataPath),
 ]);
 
+function getPathEntries() {
+    return String(process.env.Path || process.env.PATH || '')
+        .split(path.delimiter)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+}
+
+function getWindowsExecutableExtensions() {
+    const raw = String(process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM');
+    return raw
+        .split(';')
+        .map((ext) => ext.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function resolveExecutable(candidates) {
+    const names = Array.isArray(candidates) ? candidates : [candidates];
+
+    for (const candidate of names) {
+        if (!candidate) continue;
+
+        if (path.isAbsolute(candidate) && fs.existsSync(candidate)) {
+            return candidate;
+        }
+
+        if (candidate.includes(path.sep) || candidate.includes('/')) {
+            const absoluteCandidate = path.resolve(candidate);
+            if (fs.existsSync(absoluteCandidate)) {
+                return absoluteCandidate;
+            }
+        }
+
+        if (process.platform === 'win32') {
+            const extensions = path.extname(candidate)
+                ? ['']
+                : ['', ...getWindowsExecutableExtensions()];
+            for (const dir of getPathEntries()) {
+                for (const ext of extensions) {
+                    const fullPath = path.join(dir, `${candidate}${ext}`);
+                    if (fs.existsSync(fullPath)) {
+                        return fullPath;
+                    }
+                }
+            }
+        } else {
+            for (const dir of getPathEntries()) {
+                const fullPath = path.join(dir, candidate);
+                if (fs.existsSync(fullPath)) {
+                    return fullPath;
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+function resolveTerminalShell() {
+    if (process.platform !== 'win32') return 'bash';
+
+    const shellPath = resolveExecutable([
+        process.env.PWSH_PATH,
+        'pwsh.exe',
+        'powershell.exe',
+        process.env.ComSpec,
+    ]);
+
+    return shellPath || 'powershell.exe';
+}
+
 let mainWindow;
 const terminals = new Map(); // Store terminal processes
 const popoutWindows = new Map(); // paneId -> BrowserWindow
+
+function emitWindowState(targetWindow) {
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    targetWindow.webContents.send('window:state-changed', {
+        isMaximized: targetWindow.isMaximized(),
+        isFocused: targetWindow.isFocused(),
+    });
+}
+
+function attachWindowStateListeners(targetWindow) {
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    const emit = () => emitWindowState(targetWindow);
+    targetWindow.on('maximize', emit);
+    targetWindow.on('unmaximize', emit);
+    targetWindow.on('enter-full-screen', emit);
+    targetWindow.on('leave-full-screen', emit);
+    targetWindow.on('focus', emit);
+    targetWindow.on('blur', emit);
+    targetWindow.webContents.once('did-finish-load', emit);
+}
+
+function getEventWindow(event) {
+    return BrowserWindow.fromWebContents(event.sender) || mainWindow;
+}
 
 function sendToAllWindows(channel, ...args) {
     for (const win of BrowserWindow.getAllWindows()) {
@@ -121,18 +215,30 @@ function createWindow() {
     } else {
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
     }
+
+    attachWindowStateListeners(mainWindow);
 }
 
 // Window controls
-ipcMain.on('window:minimize', () => mainWindow?.minimize());
-ipcMain.on('window:maximize', () => {
-    if (mainWindow?.isMaximized()) {
-        mainWindow.unmaximize();
+ipcMain.on('window:minimize', (event) => {
+    getEventWindow(event)?.minimize();
+});
+ipcMain.on('window:maximize', (event) => {
+    const targetWindow = getEventWindow(event);
+    if (targetWindow?.isMaximized()) {
+        targetWindow.unmaximize();
     } else {
-        mainWindow?.maximize();
+        targetWindow?.maximize();
     }
 });
-ipcMain.on('window:close', () => mainWindow?.close());
+ipcMain.on('window:close', (event) => getEventWindow(event)?.close());
+ipcMain.handle('window:getState', async (event) => {
+    const targetWindow = getEventWindow(event);
+    return {
+        isMaximized: Boolean(targetWindow?.isMaximized()),
+        isFocused: Boolean(targetWindow?.isFocused()),
+    };
+});
 
 // Storage (layout persistence)
 ipcMain.handle('storage:save', async (_, key, data) => {
@@ -190,6 +296,16 @@ ipcMain.handle('fs:openFolderDialog', async () => {
     return selected.replace(/\\/g, '/');
 });
 
+ipcMain.handle('fs:openFileDialog', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const selected = path.resolve(result.filePaths[0]);
+    addAllowedPathRoot(path.dirname(selected));
+    return selected.replace(/\\/g, '/');
+});
+
 // Terminal IPC with node-pty
 const pty = require('node-pty');
 
@@ -199,7 +315,7 @@ ipcMain.handle('terminal:create', async (_, terminalId, options = {}) => {
         return true;
     }
 
-    const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+    const shell = resolveTerminalShell();
 
     let env = { ...process.env };
     let initCommands = []; // Commands to run on startup
@@ -437,8 +553,12 @@ ipcMain.handle('codeserver:start', async (_, port = 8080, workspacePath = '') =>
         }
 
         // Find code-server executable
-        const isWin = process.platform === 'win32';
-        const codeServerCmd = isWin ? 'code-server.cmd' : 'code-server';
+        const codeServerCmd = resolveExecutable(process.platform === 'win32'
+            ? ['code-server.cmd', 'code-server.exe', 'code-server']
+            : ['code-server']);
+        if (!codeServerCmd) {
+            return { success: false, error: 'code-server executable not found in PATH' };
+        }
 
         // Spawn code-server
         const args = [
@@ -452,7 +572,6 @@ ipcMain.handle('codeserver:start', async (_, port = 8080, workspacePath = '') =>
         }
 
         codeServerProcess = spawn(codeServerCmd, args, {
-            shell: true,
             env: { ...process.env },
         });
 
@@ -1037,10 +1156,14 @@ function startCodexProcess() {
     if (codexProcess) return Promise.resolve();
 
     return new Promise((resolve, reject) => {
-        const isWin = process.platform === 'win32';
-        const cmd = isWin ? 'codex' : 'codex';
-        codexProcess = spawn(cmd, ['app-server'], {
-            shell: true,
+        const codexCmd = resolveExecutable(process.platform === 'win32'
+            ? ['codex.exe', 'codex.cmd', 'codex']
+            : ['codex']);
+        if (!codexCmd) {
+            reject(new Error('Codex executable not found in PATH'));
+            return;
+        }
+        codexProcess = spawn(codexCmd, ['app-server'], {
             stdio: ['pipe', 'pipe', 'pipe'],
             env: { ...process.env },
         });
@@ -1343,6 +1466,7 @@ ipcMain.handle('popout:open', async (_, paneId, paneConfig) => {
         : `file://${path.join(__dirname, '../dist/index.html')}?popout=${encodeURIComponent(paneId)}`;
 
     popoutWin.loadURL(url);
+    attachWindowStateListeners(popoutWin);
 
     // Handle webview popup requests in popout window
     popoutWin.webContents.on('did-attach-webview', (event, webviewWebContents) => {

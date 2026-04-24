@@ -3,7 +3,7 @@ import type { MosaicNode } from 'react-mosaic-component'
 import { create6ZoneGrid, findPathToNode, getNodeAtPath, setSplitPercentageAtPath } from './gridHelper'
 import type { PaneConfig, PaneType } from '../panes/types'
 import { useShortcutsStore } from '../hooks/useShortcuts'
-import type { LayoutPreset } from './presets'
+import type { LayoutPreset, PresetPaneSnapshot } from './presets'
 import type { TabGroup } from './TabbedPaneGroup'
 
 export type PaneId = string
@@ -75,6 +75,20 @@ const createPane = (id: string): PaneConfig => ({
     type: 'empty',
     title: id,
 })
+
+const clonePaneData = (data: Record<string, unknown> | undefined) => {
+    if (!data) return undefined
+    try {
+        return JSON.parse(JSON.stringify(data)) as Record<string, unknown>
+    } catch {
+        return { ...data }
+    }
+}
+
+const buildPresetDescription = (snapshots: Record<string, PresetPaneSnapshot>) =>
+    Object.values(snapshots)
+        .map((snapshot) => snapshot.title || snapshot.type)
+        .join(' • ')
 
 const DEFAULT_PANES: Record<PaneId, PaneConfig> = {
     'pane-1': createPane('pane-1'),
@@ -650,10 +664,18 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const ids = getAllPaneIds(layout)
         const abstractMap: Record<string, string> = {}
         const paneTypes: Record<string, PaneType> = {}
+        const paneSnapshots: Record<string, PresetPaneSnapshot> = {}
         ids.forEach((id, i) => {
             const key = String.fromCharCode(97 + i) // a, b, c, ...
             abstractMap[id] = key
-            paneTypes[key] = panes[id]?.type || 'empty'
+            const sourcePane = panes[id]
+            const paneType = sourcePane?.type || 'empty'
+            paneTypes[key] = paneType
+            paneSnapshots[key] = {
+                type: paneType,
+                title: sourcePane?.title,
+                data: clonePaneData(sourcePane?.data),
+            }
         })
 
         const remapLayout = (node: MosaicNode<string>): MosaicNode<string> => {
@@ -664,10 +686,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const preset: LayoutPreset = {
             id: `preset-${Date.now()}`,
             name,
-            description: ids.map(id => panes[id]?.type || 'empty').join(' + '),
+            description: buildPresetDescription(paneSnapshots),
             icon: '📐',
             category: 'Custom',
             paneTypes,
+            paneSnapshots,
             layout: remapLayout(layout),
         }
 
@@ -682,8 +705,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
 
         for (const [abstractId, paneType] of Object.entries(preset.paneTypes)) {
             const realId = `pane-${Date.now()}-${abstractId}`
+            const snapshot = preset.paneSnapshots?.[abstractId]
             idMap[abstractId] = realId
-            newPanes[realId] = { id: realId, type: paneType, title: paneType }
+            newPanes[realId] = {
+                id: realId,
+                type: snapshot?.type || paneType,
+                title: snapshot?.title || paneType,
+                data: clonePaneData(snapshot?.data),
+            }
         }
 
         const remapLayout = (node: MosaicNode<string>): MosaicNode<string> => {
@@ -705,7 +734,17 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             const saved = await window.platform.storage.load('presets')
             if (saved) {
                 try {
-                    set({ savedPresets: JSON.parse(saved) })
+                    const parsed = JSON.parse(saved) as LayoutPreset[]
+                    const normalized = parsed.map((preset) => ({
+                        ...preset,
+                        paneSnapshots: preset.paneSnapshots || Object.fromEntries(
+                            Object.entries(preset.paneTypes || {}).map(([paneId, paneType]) => [
+                                paneId,
+                                { type: paneType, title: paneType },
+                            ])
+                        ),
+                    }))
+                    set({ savedPresets: normalized })
                 } catch (e) {
                     console.warn('Failed to parse saved presets', e)
                 }

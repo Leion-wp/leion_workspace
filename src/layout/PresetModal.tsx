@@ -32,6 +32,15 @@ export function PresetModal({ isOpen, onClose }: PresetModalProps) {
         onClose()
     }
 
+    const renderPresetMeta = (preset: LayoutPreset) => {
+        const paneCount = Object.keys(preset.paneTypes).length
+        const labels = Object.values(preset.paneSnapshots || {})
+            .map((snapshot) => snapshot.title || snapshot.type)
+            .slice(0, 3)
+
+        return `${paneCount} panes${labels.length ? ` • ${labels.join(' • ')}` : ''}`
+    }
+
     if (!isOpen) return null
 
     return createPortal(
@@ -97,6 +106,7 @@ export function PresetModal({ isOpen, onClose }: PresetModalProps) {
                                     <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium truncate">{preset.name}</div>
                                         <div className="text-[10px] text-muted-foreground mt-0.5">{preset.description}</div>
+                                        <div className="text-[10px] text-muted-foreground/70 mt-1">{renderPresetMeta(preset)}</div>
                                     </div>
                                 </button>
                             ))}
@@ -118,6 +128,7 @@ export function PresetModal({ isOpen, onClose }: PresetModalProps) {
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm font-medium truncate">{preset.name}</div>
                                                 <div className="text-[10px] text-muted-foreground mt-0.5">{preset.description}</div>
+                                                <div className="text-[10px] text-muted-foreground/70 mt-1">{renderPresetMeta(preset)}</div>
                                             </div>
                                         </button>
                                         <Button

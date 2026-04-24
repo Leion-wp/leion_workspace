@@ -39,6 +39,19 @@ export function BrowserPane({ id, data, onUpdate }: BrowserPaneProps) {
 
     const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
+    useEffect(() => {
+        if (!data) return
+        if (Array.isArray(data.tabs)) {
+            setTabs(data.tabs)
+        }
+        if (typeof data.activeTabId === 'string') {
+            setActiveTabIdState(data.activeTabId)
+        }
+        if (Array.isArray(data.bookmarks)) {
+            setBookmarks(data.bookmarks)
+        }
+    }, [data?.tabs, data?.activeTabId, data?.bookmarks])
+
     // --- EFFECT: Register JS Execution ---
     useEffect(() => {
         if (!id) return;

@@ -16,6 +16,7 @@ import { cn } from '../lib/utils'
 import { PresetModal } from '../layout/PresetModal'
 import { closePaneWithCleanup } from '../layout/paneLifecycle'
 import { useShortcutsStore } from '../hooks/useShortcuts'
+import { useSettingsStore } from '../store/settings'
 
 export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false)
@@ -32,6 +33,7 @@ export function Sidebar() {
     const [dragOverPaneId, setDragOverPaneId] = useState<string | null>(null)
     const [showSettings, setShowSettings] = useState(false)
     const [showPresets, setShowPresets] = useState(false)
+    const theme = useSettingsStore((state) => state.theme)
 
     const contextMenu = useContextMenu()
 
@@ -65,6 +67,12 @@ export function Sidebar() {
             window.removeEventListener('mouseup', stopResizing)
         }
     }, [resize, stopResizing])
+
+    useEffect(() => {
+        const openSettings = () => setShowSettings(true)
+        window.addEventListener('leion:open-settings', openSettings)
+        return () => window.removeEventListener('leion:open-settings', openSettings)
+    }, [])
 
     const layout = useLayoutStore((state) => state.layout)
     const panes = useLayoutStore((state) => state.panes)
@@ -435,7 +443,7 @@ export function Sidebar() {
                                                         }}
                                                         width={300}
                                                         height={400}
-                                                        theme={"dark" as any} // Should infer from theme context but hardcoded for now or use system
+                                                        theme={theme as any}
                                                     />
                                                 </div>
                                             )}

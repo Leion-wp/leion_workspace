@@ -3,6 +3,7 @@ import { ContextMenuProvider } from '../components'
 import { Pane } from '../layout/Pane'
 import { useLayoutStore } from '../layout/store'
 import type { PaneConfig } from '../panes/types'
+import { Titlebar } from './Titlebar'
 
 /**
  * Minimal app shell for pop-out windows.
@@ -71,10 +72,7 @@ export function PopoutApp() {
     return (
         <ContextMenuProvider>
             <div className="h-screen w-full flex flex-col bg-background text-foreground overflow-hidden">
-                {/* Minimal titlebar */}
-                <div className="h-8 bg-card border-b border-border/40 flex items-center px-3 select-none app-drag-region">
-                    <span className="text-xs font-medium text-muted-foreground">{title}</span>
-                </div>
+                <Titlebar title={title} subtitle="Popout" />
                 <div className="flex-1 overflow-hidden">
                     <Pane id={paneId} />
                 </div>

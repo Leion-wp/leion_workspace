@@ -6,6 +6,12 @@ contextBridge.exposeInMainWorld('platform', {
         minimize: () => ipcRenderer.send('window:minimize'),
         maximize: () => ipcRenderer.send('window:maximize'),
         close: () => ipcRenderer.send('window:close'),
+        getState: () => ipcRenderer.invoke('window:getState'),
+        onStateChange: (callback) => {
+            const listener = (_, state) => callback(state);
+            ipcRenderer.on('window:state-changed', listener);
+            return () => ipcRenderer.removeListener('window:state-changed', listener);
+        },
     },
     storage: {
         save: (key, data) => ipcRenderer.invoke('storage:save', key, data),
@@ -41,6 +47,7 @@ contextBridge.exposeInMainWorld('platform', {
         readFile: (p) => ipcRenderer.invoke('fs:readFile', p),
         writeFile: (p, c) => ipcRenderer.invoke('fs:writeFile', p, c),
         openFolderDialog: () => ipcRenderer.invoke('fs:openFolderDialog'),
+        openFileDialog: () => ipcRenderer.invoke('fs:openFileDialog'),
     },
     fileWatcher: {
         start: (id, glob, cwd) => ipcRenderer.invoke('filewatcher:start', id, glob, cwd),

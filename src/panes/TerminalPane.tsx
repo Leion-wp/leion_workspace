@@ -7,13 +7,15 @@ import { usePaneStateStore } from './paneStateStore';
 import { usePaneControlBus } from './paneControlBus';
 import { useBroadcastStore } from '../layout/broadcastStore';
 import { useTerminalProfileStore } from './terminalProfileStore';
+import { useSettingsStore } from '../store/settings';
 
 interface TerminalPaneProps {
     id: string;
     type?: 'terminal' | 'gemini';
+    data?: Record<string, unknown>;
 }
 
-export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
+export function TerminalPane({ id, type = 'terminal', data }: TerminalPaneProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const initRef = useRef(false);
     const ptyReadyRef = useRef(false);
@@ -29,6 +31,11 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
     const syncCwdAcrossTerminals = useTerminalProfileStore((s) => s.syncCwdAcrossTerminals);
     const lastCwdSourcePaneId = useTerminalProfileStore((s) => s.lastCwdSourcePaneId);
     const setSharedCwd = useTerminalProfileStore((s) => s.setSharedCwd);
+    const theme = useSettingsStore((s) => s.theme);
+    const paneCwd = typeof data?.cwd === 'string' ? data.cwd : undefined;
+    const paneInitCommands = typeof data?.initCommands === 'string'
+        ? data.initCommands.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+        : [];
 
     // Initialize ambient state on mount, clean up on unmount
     useEffect(() => {
@@ -61,29 +68,53 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
         initRef.current = true;
 
         const terminal = new Terminal({
-            theme: {
-                background: '#1e1e1e', // Matches VS Code dark
-                foreground: '#cccccc',
-                cursor: '#ffffff',
-                cursorAccent: '#1e1e1e',
-                selectionBackground: '#264f78',
-                black: '#000000',
-                red: '#cd3131',
-                green: '#0dbc79',
-                yellow: '#e5e510',
-                blue: '#2472c8',
-                magenta: '#bc3fbc',
-                cyan: '#11a8cd',
-                white: '#e5e5e5',
-                brightBlack: '#666666',
-                brightRed: '#f14c4c',
-                brightGreen: '#23d18b',
-                brightYellow: '#f5f543',
-                brightBlue: '#3b8eea',
-                brightMagenta: '#d670d6',
-                brightCyan: '#29b8db',
-                brightWhite: '#e5e5e5',
-            },
+            theme: theme === 'dark'
+                ? {
+                    background: '#111827',
+                    foreground: '#e5e7eb',
+                    cursor: '#f9fafb',
+                    cursorAccent: '#111827',
+                    selectionBackground: '#1f2937',
+                    black: '#111827',
+                    red: '#ef4444',
+                    green: '#22c55e',
+                    yellow: '#eab308',
+                    blue: '#3b82f6',
+                    magenta: '#a855f7',
+                    cyan: '#06b6d4',
+                    white: '#e5e7eb',
+                    brightBlack: '#6b7280',
+                    brightRed: '#f87171',
+                    brightGreen: '#4ade80',
+                    brightYellow: '#facc15',
+                    brightBlue: '#60a5fa',
+                    brightMagenta: '#c084fc',
+                    brightCyan: '#22d3ee',
+                    brightWhite: '#f9fafb',
+                }
+                : {
+                    background: '#f8fafc',
+                    foreground: '#0f172a',
+                    cursor: '#0f172a',
+                    cursorAccent: '#f8fafc',
+                    selectionBackground: '#cbd5e1',
+                    black: '#0f172a',
+                    red: '#dc2626',
+                    green: '#16a34a',
+                    yellow: '#ca8a04',
+                    blue: '#2563eb',
+                    magenta: '#9333ea',
+                    cyan: '#0891b2',
+                    white: '#e2e8f0',
+                    brightBlack: '#64748b',
+                    brightRed: '#ef4444',
+                    brightGreen: '#22c55e',
+                    brightYellow: '#eab308',
+                    brightBlue: '#3b82f6',
+                    brightMagenta: '#a855f7',
+                    brightCyan: '#06b6d4',
+                    brightWhite: '#ffffff',
+                },
             fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
             fontSize: 13,
             cursorBlink: true,
@@ -163,9 +194,9 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
             // Invoke creation with options object based on prop
             window.platform.terminal.create(terminalId, {
                 type,
-                cwd: sharedCwd || undefined,
+                cwd: paneCwd || sharedCwd || undefined,
                 env: sharedEnv,
-                initCommands: bootstrapCommands,
+                initCommands: [...bootstrapCommands, ...paneInitCommands],
             } as any).then((success: boolean) => {
                 if (!success) {
                     terminal.writeln('Failed to create terminal process');
@@ -184,7 +215,7 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
             resizeObserver?.disconnect();
             terminal.dispose();
         };
-    }, [id, profileLoaded, type]);
+    }, [id, profileLoaded, type, theme]);
 
     // Keep all terminals on the same cwd if sync is enabled.
     useEffect(() => {
@@ -202,8 +233,18 @@ export function TerminalPane({ id, type = 'terminal' }: TerminalPaneProps) {
         usePaneStateStore.getState().updatePaneState(id, { cwd: sharedCwd });
     }, [id, profileLoaded, sharedCwd, syncCwdAcrossTerminals, lastCwdSourcePaneId]);
 
+    useEffect(() => {
+        if (!profileLoaded || !paneCwd || !ptyReadyRef.current || !window.platform?.terminal) return
+        if (currentCwdRef.current === paneCwd) return
+
+        const terminalId = `terminal-${id}`
+        window.platform.terminal.send(terminalId, `cd "${paneCwd}"\r`)
+        currentCwdRef.current = paneCwd
+        usePaneStateStore.getState().updatePaneState(id, { cwd: paneCwd })
+    }, [id, paneCwd, profileLoaded])
+
     return (
-        <div className="flex flex-col h-full bg-[#1e1e1e] overflow-hidden">
+        <div className={`flex flex-col h-full overflow-hidden ${theme === 'dark' ? 'bg-slate-900' : 'bg-slate-50'}`}>
             {/* Optional Header (like VS Code terminal tabs if needed, for now just the term) */}
             <div
                 ref={containerRef}
