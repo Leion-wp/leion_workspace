@@ -45,14 +45,36 @@ export type PaneAmbientState = TerminalPaneState | BrowserPaneState | EditorPane
 
 interface PaneStateStoreState {
     paneStates: Record<string, PaneAmbientState>;
+    isHydrated: boolean;
     setPaneState: (paneId: string, state: PaneAmbientState) => void;
     updatePaneState: (paneId: string, partial: Partial<PaneAmbientState>) => void;
     removePaneState: (paneId: string) => void;
     getAllPaneStates: () => Record<string, PaneAmbientState>;
+    hydratePaneStates: (paneStates: Record<string, PaneAmbientState>) => void;
+    loadPaneStates: () => Promise<void>;
+    savePaneStates: () => Promise<void>;
+}
+
+const STORAGE_KEY = 'pane-ambient-state';
+
+function sanitizePaneState(state: PaneAmbientState): PaneAmbientState {
+    switch (state.type) {
+        case 'terminal':
+            return { ...state, isRunning: false };
+        case 'browser':
+            return { ...state, isLoading: false };
+        case 'chat':
+            return { ...state, isThinking: false };
+        case 'agent':
+            return { ...state, isThinking: false };
+        default:
+            return state;
+    }
 }
 
 export const usePaneStateStore = create<PaneStateStoreState>((set, get) => ({
     paneStates: {},
+    isHydrated: false,
     setPaneState: (paneId, state) =>
         set((prev) => ({ paneStates: { ...prev.paneStates, [paneId]: state } })),
     updatePaneState: (paneId, partial) =>
@@ -68,4 +90,39 @@ export const usePaneStateStore = create<PaneStateStoreState>((set, get) => ({
             return { paneStates: next };
         }),
     getAllPaneStates: () => get().paneStates,
+    hydratePaneStates: (paneStates) =>
+        set({
+            paneStates: Object.fromEntries(
+                Object.entries(paneStates).map(([paneId, state]) => [paneId, sanitizePaneState(state)])
+            ),
+            isHydrated: true,
+        }),
+    loadPaneStates: async () => {
+        if (!window.platform?.storage) {
+            set({ isHydrated: true });
+            return;
+        }
+
+        const saved = await window.platform.storage.load(STORAGE_KEY);
+        if (!saved) {
+            set({ isHydrated: true });
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(saved) as Record<string, PaneAmbientState>;
+            get().hydratePaneStates(parsed);
+        } catch (error) {
+            console.warn('Failed to parse saved pane states', error);
+            set({ isHydrated: true });
+        }
+    },
+    savePaneStates: async () => {
+        if (!window.platform?.storage) return;
+
+        const paneStates = Object.fromEntries(
+            Object.entries(get().paneStates).map(([paneId, state]) => [paneId, sanitizePaneState(state)])
+        );
+        await window.platform.storage.save(STORAGE_KEY, JSON.stringify(paneStates));
+    },
 }));

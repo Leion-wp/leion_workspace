@@ -12,6 +12,7 @@ import { useBroadcastStore } from '../layout/broadcastStore'
 import { useSettingsStore } from '../store/settings'
 import { useFusionStore } from '../panes/fusionStore'
 import { useTerminalProfileStore } from '../panes/terminalProfileStore'
+import { usePaneStateStore } from '../panes/paneStateStore'
 import { closePaneWithCleanup, resolvePaneToClose } from '../layout/paneLifecycle'
 import type { PaneConfig } from '../panes/types'
 import type { MosaicNode } from 'react-mosaic-component'
@@ -39,6 +40,9 @@ function App() {
     const loadPresetsFromStorage = useLayoutStore((state) => state.loadPresetsFromStorage)
     const loadFusions = useFusionStore((state) => state.loadFusions)
     const loadTerminalProfile = useTerminalProfileStore((state) => state.loadProfile)
+    const paneStates = usePaneStateStore((state) => state.paneStates)
+    const loadPaneStates = usePaneStateStore((state) => state.loadPaneStates)
+    const savePaneStates = usePaneStateStore((state) => state.savePaneStates)
     const removeBroadcastPane = useBroadcastStore((state) => state.removePane)
 
     // Load everything on mount
@@ -49,6 +53,7 @@ function App() {
         loadPresetsFromStorage()
         loadFusions()
         loadTerminalProfile()
+        loadPaneStates()
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Auto-save when panes or spaces change (debounced)
@@ -56,6 +61,12 @@ function App() {
         const timer = setTimeout(() => saveLayout(), 800)
         return () => clearTimeout(timer)
     }, [panes, spaces, saveLayout])
+
+    // Auto-save pane ambient state separately for restart restoration.
+    useEffect(() => {
+        const timer = setTimeout(() => savePaneStates(), 400)
+        return () => clearTimeout(timer)
+    }, [paneStates, savePaneStates])
 
     // Get all pane IDs in order
     const getAllPaneIds = (node: MosaicNode<string> | null): string[] => {
