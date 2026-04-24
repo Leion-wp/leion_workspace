@@ -35,6 +35,7 @@ function App() {
     const loadShortcuts = useShortcutsStore((state) => state.loadShortcuts)
     const setActivePane = useShortcutsStore((state) => state.setActivePane)
     const loadSettings = useSettingsStore((state) => state.loadSettings)
+    const toggleTheme = useSettingsStore((state) => state.toggleTheme)
     const loadPresetsFromStorage = useLayoutStore((state) => state.loadPresetsFromStorage)
     const loadFusions = useFusionStore((state) => state.loadFusions)
     const loadTerminalProfile = useTerminalProfileStore((state) => state.loadProfile)
@@ -129,6 +130,7 @@ function App() {
         focusPane5: () => focusPane(4),
         nextPane,
         prevPane,
+        toggleTheme,
         saveLayout: () => saveLayout(),
         commandPalette: () => {}, // handled by CommandPalette component directly
     })

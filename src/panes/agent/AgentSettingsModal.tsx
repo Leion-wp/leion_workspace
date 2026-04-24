@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, Check, Plus, Trash2, Globe, Folder, MessageSquare, Settings, Database, Cpu, Shield } from 'lucide-react'
+import { X, Trash2, Globe, Folder, MessageSquare, Settings, Database, Cpu, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useAgentStore, Project, Thread } from '@/store/agentStore'
+import { useAgentStore } from '@/store/agentStore'
 
 interface AgentSettingsModalProps {
     isOpen: boolean
@@ -255,7 +255,7 @@ function EnvEditor({ env, onUpdate }: { env: Record<string, string>, onUpdate: (
 }
 
 function GeneralSettings() {
-    const { settings, updateSettings } = useAgentStore()
+    const { settings } = useAgentStore()
 
     return (
         <div className="space-y-6">

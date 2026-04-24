@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, Terminal, Globe, FileText, MessageSquare, Layout, ArrowRight, Database, Workflow, Code, SplitSquareHorizontal, Maximize2, Save, Plus } from 'lucide-react'
+import { Search, Terminal, Globe, FileText, MessageSquare, Layout, ArrowRight, Database, Workflow, Code, SplitSquareHorizontal, Maximize2, Save, Plus, Moon, Sun, Settings } from 'lucide-react'
 import { useLayoutStore, getAllPaneIds } from './store'
 import { useShortcutsStore } from '../hooks/useShortcuts'
 import { PANE_TYPES, type PaneType } from '../panes'
 import { usePaneStateStore } from '../panes/paneStateStore'
 import { useTerminalProfileStore } from '../panes/terminalProfileStore'
+import { useSettingsStore } from '../store/settings'
 import type { MosaicNode } from 'react-mosaic-component'
 
 interface Command {
@@ -68,6 +69,7 @@ export function CommandPalette() {
     const saveLayout = useLayoutStore(s => s.saveLayout)
     const splitActivePane = useLayoutStore(s => s.splitActivePane)
     const syncCwdAcrossTerminals = useTerminalProfileStore(s => s.syncCwdAcrossTerminals)
+    const theme = useSettingsStore(s => s.theme)
 
     const paneIds = useMemo(() => {
         const ids = getAllPaneIds(layout)
@@ -172,6 +174,29 @@ export function CommandPalette() {
             { id: 'split-h', label: 'Split Pane Horizontally', category: 'Layout', icon: <SplitSquareHorizontal size={14} />, action: () => { splitActivePane('row'); setIsOpen(false) }, keywords: ['split', 'horizontal', 'side'] },
             { id: 'split-v', label: 'Split Pane Vertically', category: 'Layout', icon: <SplitSquareHorizontal size={14} className="rotate-90" />, action: () => { splitActivePane('column'); setIsOpen(false) }, keywords: ['split', 'vertical', 'stack'] },
             { id: 'save-layout', label: 'Save Layout', category: 'Layout', icon: <Save size={14} />, shortcut: 'Ctrl+S', action: () => { saveLayout(); setIsOpen(false) } },
+            {
+                id: 'toggle-theme',
+                label: `Theme: Switch to ${theme === 'dark' ? 'Light' : 'Dark'}`,
+                category: 'Layout',
+                icon: theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />,
+                shortcut: 'Ctrl+Shift+D',
+                action: () => {
+                    useSettingsStore.getState().toggleTheme()
+                    setIsOpen(false)
+                },
+                keywords: ['theme', 'dark', 'light', 'appearance'],
+            },
+            {
+                id: 'open-settings',
+                label: 'Open Settings',
+                category: 'Navigation',
+                icon: <Settings size={14} />,
+                action: () => {
+                    window.dispatchEvent(new CustomEvent('leion:open-settings'))
+                    setIsOpen(false)
+                },
+                keywords: ['settings', 'preferences', 'appearance'],
+            },
             { id: 'maximize', label: 'Maximize Active Pane', category: 'Layout', icon: <Maximize2 size={14} />, action: () => { /* handled by mosaic expand */ setIsOpen(false) } },
             {
                 id: 'toggle-terminal-cwd-sync',
@@ -214,7 +239,7 @@ export function CommandPalette() {
         })
 
         return cmds
-    }, [paneIds, panes, spaces, activeSpaceId, addPane, focusPane, splitActivePane, saveLayout, switchSpace])
+    }, [paneIds, panes, spaces, activeSpaceId, addPane, focusPane, splitActivePane, saveLayout, switchSpace, syncCwdAcrossTerminals, theme])
 
     // Filter and sort
     const filtered = useMemo(() => {

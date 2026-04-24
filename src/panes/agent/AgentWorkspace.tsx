@@ -13,7 +13,7 @@ type Tab = 'logs' | 'diff' | 'preview'
 
 export function AgentWorkspace({ className, isExpanded, onToggleExpand }: AgentWorkspaceProps) {
     const [activeTab, setActiveTab] = useState<Tab>('logs')
-    const { activeThreadId, threads } = useAgentStore()
+    const { activeThreadId } = useAgentStore()
 
     // In a real implementation, we'd derive these from the thread state or a separate store
     // For now, we'll just show placeholders

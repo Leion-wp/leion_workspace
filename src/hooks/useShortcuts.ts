@@ -14,6 +14,7 @@ export type ShortcutAction =
     | 'nextPane'
     | 'prevPane'
     | 'toggleSidebar'
+    | 'toggleTheme'
     | 'saveLayout'
     | 'commandPalette'
 
@@ -47,6 +48,7 @@ const DEFAULT_BINDINGS: ShortcutBinding[] = [
     { key: 'ctrl+tab', action: 'nextPane', description: 'Next pane' },
     { key: 'ctrl+shift+tab', action: 'prevPane', description: 'Previous pane' },
     { key: 'ctrl+b', action: 'toggleSidebar', description: 'Toggle sidebar' },
+    { key: 'ctrl+shift+d', action: 'toggleTheme', description: 'Toggle dark mode' },
     { key: 'ctrl+s', action: 'saveLayout', description: 'Save layout' },
     { key: 'ctrl+k', action: 'commandPalette', description: 'Command palette' },
 ]
